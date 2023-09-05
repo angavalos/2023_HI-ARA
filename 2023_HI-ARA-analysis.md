@@ -1,7 +1,7 @@
 ---
 title: "2023 HI ARA Analysis"
 author: "Angel Avalos"
-date: "`r Sys.Date()`"
+date: "2023-09-05"
 output: 
   html_document: 
     keep_md: yes
@@ -12,7 +12,8 @@ output:
 ### Import packages and set working directory.
 
 ##### R
-```{r setup, warning=FALSE, message=FALSE}
+
+```r
 knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 library(reticulate)
 library(ggplot2)
@@ -21,14 +22,16 @@ library(dplyr)
 ```
 
 ##### Python
-``` {python setup_2, message=FALSE}
+
+```python
 import pandas as pd
 import numpy as np
 import os
 ```
 
 ### ARA Data
-``` {python import, eval=FALSE}
+
+```python
 # Importing file
 data = pd.read_csv("data/ara-reports.csv")
 data = data.replace(r'^\s*$', np.nan, regex=True)
@@ -46,7 +49,8 @@ data.to_csv("output/ara-report-dates.csv",index=False)
 ```
 
 ### 2023 ARAs
-```{python ara-data}
+
+```python
 # in the future, convert to ethylene ppm based on standard curve
 toptop=pd.DataFrame()
 for i in os.listdir("data/"):
@@ -77,7 +81,8 @@ toptop.reset_index(drop=True,inplace=True)
 #top[top["ID"]!="uninoc_pos"]["Area"]-blank
 ```
 
-```{r plot}
+
+```r
 data = py$toptop
 
 ggplot(data=data, aes(x=ID, y=Area)) +
@@ -86,3 +91,5 @@ ggplot(data=data, aes(x=ID, y=Area)) +
   ylab("Ethylene Peak Area") +
   theme(axis.text.x = element_text(angle=90, vjust=0.3))
 ```
+
+![](2023_HI-ARA-analysis_files/figure-html/plot-1.png)<!-- -->
