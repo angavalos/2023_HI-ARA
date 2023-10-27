@@ -54,20 +54,34 @@ for i in os.listdir("data/"):
     path = "data/"+i
     top = pd.DataFrame()
     for j in os.listdir(path):
-      name = j.split("_",1)[1].replace("_rep1_MS.csv","").replace("_rep2_MS.csv","")
+      name = j.split("_",1)[1].replace("_rep1_MS.csv","").replace("_rep2_MS.csv","").replace("_rep3_MS.csv","").replace("_rep4_MS.csv","").replace("_MS_1.csv","")
+      # At later dates, I stopped running neg for samples so I didn't say they were "pos". Need to add that label.
+      if "pos" not in name and "neg" not in name:
+        name = name+"_pos"
       data = pd.read_csv(path+"/"+j, header=3)
       data = data.iloc[:,1:24]
       # Note that these criteria are based on manual inspection of values, subject to change.
-      data = data[data["RT"].between(2.61,2.68)]
+      data = data[data["RT"].between(2.56,2.68)]
       data.insert(loc=0,column="ID",value=name)
       top = pd.concat([top,data], axis=0)
-    blank = top[top["ID"]=="uninoc_pos"]["Area"].mean()
-    top = top[top["ID"]!="uninoc_pos"]
-    top["Area"] = top["Area"]-blank
-    top.reset_index(drop=True,inplace=True)
-    top.insert(loc=24,column="date",value=i)
-    toptop = pd.concat([top,toptop], axis=0)
+    if "uninoc_pos" in top["ID"].to_list():
+      blank = top[top["ID"]=="uninoc_pos"]["Area"].mean()
+      top = top[top["ID"]!="uninoc_pos"]
+      top["Area"] = top["Area"]-blank
+      top.reset_index(drop=True,inplace=True)
+      top.insert(loc=24,column="date",value=i)
+      toptop = pd.concat([top,toptop], axis=0)
+    else:
+      blank = top[top["ID"]=="blank_pos"]["Area"].mean()
+      top = top[top["ID"]!="blank_pos"]
+      top["Area"] = top["Area"]-blank
+      top.reset_index(drop=True,inplace=True)
+      top.insert(loc=24,column="date",value=i)
+      toptop = pd.concat([top,toptop], axis=0)
 toptop.reset_index(drop=True,inplace=True)
+pos = toptop[toptop["ID"].str.contains("pos")]
+#len(pos["date"]==20230909)
+neg = toptop[toptop["ID"].str.contains("neg")]
 #data = pd.read_csv("data/20230902/20230902_BCW202070_pos_rep1_MS.csv", header=3)
 #data = data.iloc[:,1:24]
 #data = data[data["RT"].between(2.55,2.75)]
@@ -75,14 +89,26 @@ toptop.reset_index(drop=True,inplace=True)
 #data.insert(loc=0,column="ID",value=name)
 #blank = top[top["ID"]=="uninoc_pos"]["Area"].mean()
 #top[top["ID"]!="uninoc_pos"]["Area"]-blank
+len(pos["ID"].unique())
+
+meta=pd.read_csv("data/2022-06-30_molokai-isolate-catalog - Copy.csv")
+meta=meta.iloc[:-1,:]
+toton=meta[meta["Sample Type "].str.contains("Totontepec")]
+len(toton)
+toton["BCW_ID"]=toton["BCW_ID"].str.replace("BCW_","BCW")
+len(set([i for i in pos["ID"] if i.replace("_pos","") not in toton["BCW_ID"].to_list()]))
+len(pos["ID"].unique())
 ```
 
-```{r plot}
-data = py$toptop
+```{r plot, fig.width=10}
+data = py$pos
 
 ggplot(data=data, aes(x=ID, y=Area)) +
   geom_bar(stat="summary",fun="mean", aes(fill=date)) + 
   geom_point() +
   ylab("Ethylene Peak Area") +
   theme(axis.text.x = element_text(angle=90, vjust=0.3))
+# Simple filter to remove small values.
+ggplot(data=filter(data,Area>10000), aes(x=date,y=Area)) +
+  geom_boxplot()
 ```
