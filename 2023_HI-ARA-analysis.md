@@ -84,15 +84,7 @@ for i in os.listdir("data/"):
       toptop = pd.concat([top,toptop], axis=0)
 toptop.reset_index(drop=True,inplace=True)
 pos = toptop[toptop["ID"].str.contains("pos")]
-#len(pos["date"]==20230909)
 neg = toptop[toptop["ID"].str.contains("neg")]
-#data = pd.read_csv("data/20230902/20230902_BCW202070_pos_rep1_MS.csv", header=3)
-#data = data.iloc[:,1:24]
-#data = data[data["RT"].between(2.55,2.75)]
-#name = "data/20230902/20230902_BCW202070_pos_rep1_MS.csv".split("_",1)[1].replace("_rep1_MS.csv","").replace("_rep2_MS.csv","")
-#data.insert(loc=0,column="ID",value=name)
-#blank = top[top["ID"]=="uninoc_pos"]["Area"].mean()
-#top[top["ID"]!="uninoc_pos"]["Area"]-blank
 len(pos["ID"].unique())
 ```
 
@@ -100,14 +92,55 @@ len(pos["ID"].unique())
 ## 117
 ```
 
+```python
+# Convert peak area to nmol ethylene.
+pos["nmol-eth"]=(pos["Area"]-17690)/383.46
+```
+
+```
+## <string>:2: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+```
+
+```python
+# We're assuming 48hr incubation for all. There are slight variations (+-2hr). Can correct in the future.
+pos["nmol-eth/hr/OD"]=(pos["nmol-eth"]/48/0.1)
+```
+
+```
+## <string>:2: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+```
+
+```python
+
+
+#meta=pd.read_csv("data/2022-06-30_molokai-isolate-catalog - Copy.csv")
+#meta=meta.iloc[:-1,:]
+#toton=meta[meta["Sample Type "].str.contains("Totontepec")]
+#len(toton)
+#toton["BCW_ID"]=toton["BCW_ID"].str.replace("BCW_","BCW")
+#len(set([i for i in pos["ID"] if i.replace("_pos","") not in toton["BCW_ID"].to_list()]))
+#len(pos["ID"].unique())
+```
+
 
 ```r
 data = py$pos
 
-ggplot(data=data, aes(x=ID, y=Area)) +
+ggplot(data=data, aes(x=ID, y=`nmol-eth/hr/OD`)) +
   geom_bar(stat="summary",fun="mean", aes(fill=date)) + 
   geom_point() +
-  ylab("Ethylene Peak Area") +
+  geom_hline(yintercept=750,linetype="dashed")+
+  scale_y_continuous(breaks=c(0,500,750,1000,1500,2000,2500),labels=c(0,500,"A. brasilense",1000,1500,2000,2500)) +
+  #annotate("text",x=100,y=750,label="A. brasilense (Van Deynze et. al 2018)") +
+  ylab("Nanomoles of Ethylene/hr/OD600") +
   theme(axis.text.x = element_text(angle=90, vjust=0.3))
 ```
 
@@ -115,7 +148,7 @@ ggplot(data=data, aes(x=ID, y=Area)) +
 
 ```r
 # Simple filter to remove small values.
-ggplot(data=filter(data,Area>10000), aes(x=date,y=Area)) +
+ggplot(data=filter(data,Area>10000), aes(x=date,y=`nmol-eth/hr/OD`)) +
   geom_boxplot()
 ```
 
