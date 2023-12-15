@@ -1,7 +1,7 @@
 ---
 title: "2023 HI ARA Analysis"
 author: "Angel Avalos"
-date: "2023-12-11"
+date: "2023-12-15"
 output: 
   html_document: 
     keep_md: yes
@@ -19,6 +19,19 @@ library(reticulate)
 library(ggplot2)
 library(RColorBrewer)
 library(dplyr)
+
+ggplotRegression <- function (fit) {
+
+require(ggplot2)
+
+ggplot(fit$model, aes_string(x = names(fit$model)[2], y = names(fit$model)[1])) + 
+  geom_point() +
+  stat_smooth(method = "lm", col = "red") +
+  labs(title = paste("Adj R2 = ",signif(summary(fit)$adj.r.squared, 5),
+                     "Intercept =",signif(fit$coef[[1]],5 ),
+                     " Slope =",signif(fit$coef[[2]], 5),
+                     " P =",signif(summary(fit)$coef[2,4], 5)))
+}
 ```
 
 ##### Python
@@ -336,7 +349,7 @@ ggplot(data=ace, aes(x=`new-ID`, y=Area)) +
   #scale_y_continuous(breaks=c(0,500,750,1000,1500,2000,2500),labels=c(0,500,"A. brasilense",1000,1500,2000,2500)) +
   #annotate("text",x=100,y=750,label="A. brasilense (Van Deynze et. al 2018)") +
   ylab("Acetylene Peak Area") +
-  theme(axis.text.x = element_text(angle=90, vjust=0.3))
+  theme(axis.text.x = element_blank())
 ```
 
 ![](2023_HI-ARA-analysis_files/figure-html/plot-ace-1.png)<!-- -->
@@ -373,3 +386,175 @@ ggplot(data=test%>%filter(mean_eth_area<1000000), aes(x=mean_ace_area,y=mean_eth
 ```
 
 ![](2023_HI-ARA-analysis_files/figure-html/plot-ace-3.png)<!-- -->
+
+# Every Rep Ethylene-Acetylene
+
+```python
+toptop=pd.DataFrame()
+for i in os.listdir("data/"):
+  if os.path.isdir("data/"+i):
+    path = "data/"+i
+    for j in os.listdir(path):
+      name = j
+      # At later dates, I stopped running neg for samples so I didn't say they were "pos". Need to add that label.
+      if "pos" not in name and "neg" not in name:
+        name = name+"_pos"
+      data = pd.read_csv(path+"/"+j, header=3)
+      data = data.iloc[:,1:24]
+      # Note that these criteria are based on manual inspection of values, subject to change.
+      data = data[data["RT"].between(4.7,5.4)]
+      # Some small peaks of non-ethylene mess with getting ethylene peak only.
+      # If ethylene is present, it is the highest peak, so getting the highest peak within the RT range.
+      data = data[data["Area"]==data["Area"].max()]
+      data.insert(loc=0,column="ID",value=name)
+      data.insert(loc=24,column="date",value=i)
+      toptop = pd.concat([toptop,data], axis=0)
+toptop.reset_index(drop=True,inplace=True)
+finalace = toptop[~toptop["ID"].str.contains("blank")]
+finalace = finalace[~finalace["ID"].str.contains("uninoc")]
+finalace = finalace[~finalace["ID"].str.contains("neg")]
+finalace = finalace[~finalace["ID"].str.contains("ppm")]
+finalace.set_index("ID",inplace=True)
+
+top=pd.DataFrame()
+for i in os.listdir("data/"):
+  if os.path.isdir("data/"+i):
+    path = "data/"+i
+    for j in os.listdir(path):
+      name = j
+      # At later dates, I stopped running neg for samples so I didn't say they were "pos". Need to add that label.
+      if "pos" not in name and "neg" not in name:
+        name = name+"_pos"
+      data = pd.read_csv(path+"/"+j, header=3)
+      data = data.iloc[:,1:24]
+      # Note that these criteria are based on manual inspection of values, subject to change.
+      data = data[data["RT"].between(2.56,2.68)]
+      # Some small peaks of non-ethylene mess with getting ethylene peak only.
+      # If ethylene is present, it is the highest peak, so getting the highest peak within the RT range.
+      data = data[data["Area"]==data["Area"].max()]
+      data.insert(loc=0,column="ID",value=name)
+      data.insert(loc=24,column="date",value=i)
+      top = pd.concat([top,data], axis=0)
+top.reset_index(drop=True,inplace=True)
+finaleth = top[~top["ID"].str.contains("blank")]
+finaleth = finaleth[~finaleth["ID"].str.contains("uninoc")]
+finaleth = finaleth[~finaleth["ID"].str.contains("neg")]
+finaleth = finaleth[~finaleth["ID"].str.contains("ppm")]
+finaleth.set_index("ID",inplace=True)
+
+both=finaleth.join(finalace,lsuffix="_eth",rsuffix="_ace")
+both.reset_index(inplace=True)
+```
+
+
+```r
+data=py$both
+new_septa_data=data%>%filter(date_ace==20231208 | date_ace==20231209 | date_ace==20231210)
+old_septa_data=data%>%filter(!date_ace %in% c(20231208,20231209,20231210))
+new_septa_data_filt=new_septa_data%>%filter(2.5E6<Area_ace & Area_ace<7.5E6)
+
+#Old data from before December. Using old septa.
+old_model=lm(Area_eth ~ Area_ace, data=old_septa_data)
+new_septa_model=lm(Area_eth ~ Area_ace, data=new_septa_data)
+new_septa_filt_model=lm(Area_eth ~ Area_ace, data=new_septa_data_filt)
+
+#All data.
+ggplot(data=data, aes(x=Area_ace,y=Area_eth,color=date_ace)) +
+  geom_point(size=4) +
+  scale_x_continuous(breaks=c(0,2.5E6,5E6,7.5E6,1E7,1.25E7,1.5E7,1.75E7),limits=c(0,1.75E7)) +
+  scale_y_continuous(breaks=c(0,1E6,2E6,3E6,4E6,5E6),limits=c(0,5E6)) +
+  xlab("Acetylene Peak Area") +
+  ylab("Ethylene Peak Area")
+```
+
+![](2023_HI-ARA-analysis_files/figure-html/plot-every-eth-ace-1.png)<!-- -->
+
+```r
+# New Septa. All available data.
+ggplot(data=new_septa_data, aes(x=Area_ace,y=Area_eth,color=date_ace)) +
+  geom_point(size=4) +
+  scale_x_continuous(breaks=c(0,2.5E6,5E6,7.5E6,1E7,1.25E7,1.5E7,1.75E7),limits=c(0,1.75E7)) +
+  scale_y_continuous(breaks=c(0,1E6,2E6,3E6,4E6,5E6),limits=c(0,5E6)) +
+  stat_smooth(method = "lm", col = "red") +
+  labs(title = paste("R^2 = ",signif(summary(new_septa_model)$r.squared, 5),
+                     "Intercept =",signif(new_septa_model$coef[[1]],5 ),
+                     " Slope =",signif(new_septa_model$coef[[2]], 5),
+                     " P =",signif(summary(new_septa_model)$coef[2,4], 5))) +
+  xlab("Acetylene Peak Area") +
+  ylab("Ethylene Peak Area")
+```
+
+```
+## `geom_smooth()` using formula = 'y ~ x'
+```
+
+```
+## Warning: Removed 26 rows containing missing values (`geom_smooth()`).
+```
+
+![](2023_HI-ARA-analysis_files/figure-html/plot-every-eth-ace-2.png)<!-- -->
+
+```r
+# New Septa. Excluding outliers.
+ggplot(data=new_septa_data_filt, aes(x=Area_ace,y=Area_eth,color=date_ace)) +
+  geom_point(size=4) +
+  scale_x_continuous(breaks=c(0,2.5E6,5E6,7.5E6,1E7,1.25E7,1.5E7,1.75E7),limits=c(0,1.75E7)) +
+  scale_y_continuous(breaks=c(0,1E6,2E6,3E6,4E6,5E6),limits=c(0,5E6)) +
+  stat_smooth(method = "lm", col = "red") +
+  labs(title = paste("R^2 = ",signif(summary(new_septa_filt_model)$r.squared, 5),
+                     "Intercept =",signif(new_septa_filt_model$coef[[1]],5 ),
+                     " Slope =",signif(new_septa_filt_model$coef[[2]], 5),
+                     " P =",signif(summary(new_septa_filt_model)$coef[2,4], 5))) +
+  xlab("Acetylene Peak Area") +
+  ylab("Ethylene Peak Area")
+```
+
+```
+## `geom_smooth()` using formula = 'y ~ x'
+```
+
+![](2023_HI-ARA-analysis_files/figure-html/plot-every-eth-ace-3.png)<!-- -->
+
+```r
+# New Septa. Excluding two outliers. Zoomed in.
+ggplot(data=new_septa_data_filt, aes(x=Area_ace,y=Area_eth,color=date_ace)) +
+  geom_point(size=4) +
+  #scale_x_continuous(breaks=c(0,2.5E6,5E6,7.5E6,1E7,1.25E7,1.5E7,1.75E7),limits=c(0,1.75E7)) +
+  #scale_y_continuous(breaks=c(0,1E6,2E6,3E6,4E6,5E6),limits=c(0,5E6)) +
+  stat_smooth(method = "lm", col = "red") +
+  labs(title = paste("R^2 = ",signif(summary(new_septa_filt_model)$r.squared, 5),
+                     "Intercept =",signif(new_septa_filt_model$coef[[1]],5 ),
+                     " Slope =",signif(new_septa_filt_model$coef[[2]], 5),
+                     " P =",signif(summary(new_septa_filt_model)$coef[2,4], 5))) +
+  xlab("Acetylene Peak Area") +
+  ylab("Ethylene Peak Area")
+```
+
+```
+## `geom_smooth()` using formula = 'y ~ x'
+```
+
+![](2023_HI-ARA-analysis_files/figure-html/plot-every-eth-ace-4.png)<!-- -->
+
+```r
+# Old Septa. All available data.
+ggplot(data=old_septa_data, aes(x=Area_ace,y=Area_eth,color=date_ace)) +
+  geom_point(size=4) +
+  scale_x_continuous(breaks=c(0,2.5E6,5E6,7.5E6,1E7,1.25E7,1.5E7,1.75E7),limits=c(0,1.75E7)) +
+  scale_y_continuous(breaks=c(0,1E6,2E6,3E6,4E6,5E6),limits=c(0,5E6)) +
+  stat_smooth(method = "lm", col = "red") +
+  labs(title = paste("R^2 = ",signif(summary(old_model)$r.squared, 5),
+                     "Intercept =",signif(old_model$coef[[1]],5 ),
+                     " Slope =",signif(old_model$coef[[2]], 5),
+                     " P =",signif(summary(old_model)$coef[2,4], 5)))
+```
+
+```
+## `geom_smooth()` using formula = 'y ~ x'
+```
+
+```
+## Warning: Removed 6 rows containing missing values (`geom_smooth()`).
+```
+
+![](2023_HI-ARA-analysis_files/figure-html/plot-every-eth-ace-5.png)<!-- -->
