@@ -302,10 +302,19 @@ ggplot(data=data%>%filter(grepl("BCW200241|Ecoli|BCW200232",ID))%>%filter(date==
 ![](2023_HI-ARA-analysis_files/figure-html/plot-4.png)<!-- -->
 
 ```r
-# Simple filter to remove small values.
-#ggplot(data=filter(data,Area>10000), aes(x=date,y=`nmol-eth/hr/OD`)) +
-#  geom_boxplot()
+data$date=as.numeric(data$date)
+ggplot(data=data, aes(x=reorder(`new-ID`,`date`), y=`nmol-eth/hr/OD`)) +
+  geom_bar(stat="summary",fun="mean", aes(fill=as.factor(date))) + 
+  geom_point() +
+  geom_hline(yintercept=750,linetype="dashed")+
+  scale_y_continuous(breaks=c(0,500,750,1000,1500,2000,2500),labels=c(0,500,"A. brasilense",1000,1500,2000,2500)) +
+  #annotate("text",x=100,y=750,label="A. brasilense (Van Deynze et. al 2018)") +
+  ylab("Nanomoles of Ethylene/hr/OD600") +
+  xlab("Isolate") +
+  theme(axis.text.x = element_blank())
 ```
+
+![](2023_HI-ARA-analysis_files/figure-html/plot-5.png)<!-- -->
 
 ### Acetylene
 
