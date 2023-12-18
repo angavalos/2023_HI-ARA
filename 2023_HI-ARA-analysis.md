@@ -1,7 +1,7 @@
 ---
 title: "2023 HI ARA Analysis"
 author: "Angel Avalos"
-date: "2023-12-15"
+date: "2023-12-18"
 output: 
   html_document: 
     keep_md: yes
@@ -19,19 +19,6 @@ library(reticulate)
 library(ggplot2)
 library(RColorBrewer)
 library(dplyr)
-
-ggplotRegression <- function (fit) {
-
-require(ggplot2)
-
-ggplot(fit$model, aes_string(x = names(fit$model)[2], y = names(fit$model)[1])) + 
-  geom_point() +
-  stat_smooth(method = "lm", col = "red") +
-  labs(title = paste("Adj R2 = ",signif(summary(fit)$adj.r.squared, 5),
-                     "Intercept =",signif(fit$coef[[1]],5 ),
-                     " Slope =",signif(fit$coef[[2]], 5),
-                     " P =",signif(summary(fit)$coef[2,4], 5)))
-}
 ```
 
 ##### Python
@@ -43,7 +30,7 @@ import os
 from sklearn import linear_model
 ```
 
-### ARA Data
+##### ARA Data
 
 ```python
 # Importing file
@@ -63,6 +50,8 @@ data.to_csv("output/ara-report-dates.csv",index=False)
 ```
 
 ### 2023 ARAs
+
+##### Extract Ethylene Peaks for samples. Convert to nmol ethylene/hr/OD.
 
 ```python
 toptop=pd.DataFrame()
@@ -84,6 +73,7 @@ for i in os.listdir("data/"):
       data = data[data["Area"]==data["Area"].max()]
       data.insert(loc=0,column="ID",value=name)
       top = pd.concat([top,data], axis=0)
+    # Blanking, and remove blanks from final dataframe.
     if "uninoc_pos" in top["ID"].to_list():
       blank = top[top["ID"]=="uninoc_pos"]["Area"].mean()
       top = top[top["ID"]!="uninoc_pos"]
@@ -99,25 +89,36 @@ for i in os.listdir("data/"):
       top.insert(loc=24,column="date",value=i)
       toptop = pd.concat([top,toptop], axis=0)
 toptop.reset_index(drop=True,inplace=True)
-pos = toptop[toptop["ID"].str.contains("pos")]
-neg = toptop[toptop["ID"].str.contains("neg")]
-#len(pos["ID"].unique())
+# "Pos" samples have acetylene. "Neg" do not. Separate.
+#pos = toptop[toptop["ID"].str.contains("pos")]
+#neg = toptop[toptop["ID"].str.contains("neg")]
+
 # Convert peak area to nmol ethylene.
 toptopnmol=pd.DataFrame()
+# Run for loop for dates in order so if no std curve for that date
+# then use the most recent std curve before that date.
 toptop["date"]=pd.to_numeric(toptop["date"])
 dates=[i for i in toptop["date"].unique()]
 dates.sort()
 for i in dates:
   subs=toptop[toptop["date"]==i]
+  # This uses an old std curve calculation.
   if i<20231208:
     subs["nmol-eth"]=(subs["Area"]-17690)/383.46
     subs["nmol-eth/hr/OD"]=(subs["nmol-eth"]/48/0.1)
     toptopnmol=pd.concat([subs,toptopnmol],axis=0)
+  # This uses the std curve run on the same day.
   elif subs["ID"].str.contains("ppm").any():
     subsppm=subs[subs["ID"].str.contains("ppm")]
-    subsppm=subsppm[~subsppm["ID"].str.contains("_N_")]
-    subsppm["concentration"]=pd.to_numeric(subsppm["ID"].str.replace("ppm_pos",""))
-    x=subsppm["concentration"].values
+    #subsppm=subsppm[~subsppm["ID"].str.contains("_N_")]
+    if subsppm["ID"].str.contains("_N_").any():
+      subsppm["concentration"]=pd.to_numeric(subsppm["ID"].str.replace("ppm_N_pos",""))
+    else:
+      subsppm["concentration"]=pd.to_numeric(subsppm["ID"].str.replace("ppm_pos",""))
+    # At STP, there are 669245.5nmol gas in 15mL of headspace. This is what we're assuming.
+    # To convert ppm to nmol of gas, simply take the proportion of the nmol total.
+    subsppm["nmol"]= 669245.5*(subsppm["concentration"]/1E6)
+    x=subsppm["nmol"].values
     y=subsppm["Area"].values
     x=x.reshape(len(x),1)
     y=y.reshape(len(x),1)
@@ -135,7 +136,12 @@ for i in dates:
 ```
 
 ```
-## <string>:4: SettingWithCopyWarning: 
+## <string>:5: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:6: SettingWithCopyWarning: 
 ## A value is trying to be set on a copy of a slice from a DataFrame.
 ## Try using .loc[row_indexer,col_indexer] = value instead
 ## 
@@ -145,7 +151,7 @@ for i in dates:
 ## Try using .loc[row_indexer,col_indexer] = value instead
 ## 
 ## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-## <string>:4: SettingWithCopyWarning: 
+## <string>:6: SettingWithCopyWarning: 
 ## A value is trying to be set on a copy of a slice from a DataFrame.
 ## Try using .loc[row_indexer,col_indexer] = value instead
 ## 
@@ -155,7 +161,7 @@ for i in dates:
 ## Try using .loc[row_indexer,col_indexer] = value instead
 ## 
 ## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-## <string>:4: SettingWithCopyWarning: 
+## <string>:6: SettingWithCopyWarning: 
 ## A value is trying to be set on a copy of a slice from a DataFrame.
 ## Try using .loc[row_indexer,col_indexer] = value instead
 ## 
@@ -165,7 +171,7 @@ for i in dates:
 ## Try using .loc[row_indexer,col_indexer] = value instead
 ## 
 ## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-## <string>:4: SettingWithCopyWarning: 
+## <string>:6: SettingWithCopyWarning: 
 ## A value is trying to be set on a copy of a slice from a DataFrame.
 ## Try using .loc[row_indexer,col_indexer] = value instead
 ## 
@@ -175,12 +181,12 @@ for i in dates:
 ## Try using .loc[row_indexer,col_indexer] = value instead
 ## 
 ## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-## <string>:4: SettingWithCopyWarning: 
+## <string>:6: SettingWithCopyWarning: 
 ## A value is trying to be set on a copy of a slice from a DataFrame.
 ## Try using .loc[row_indexer,col_indexer] = value instead
 ## 
 ## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-## <string>:5: SettingWithCopyWarning: 
+## <string>:13: SettingWithCopyWarning: 
 ## A value is trying to be set on a copy of a slice from a DataFrame.
 ## Try using .loc[row_indexer,col_indexer] = value instead
 ## 
@@ -190,7 +196,17 @@ for i in dates:
 ## Try using .loc[row_indexer,col_indexer] = value instead
 ## 
 ## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-## <string>:19: SettingWithCopyWarning: 
+## <string>:26: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:27: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:15: SettingWithCopyWarning: 
 ## A value is trying to be set on a copy of a slice from a DataFrame.
 ## Try using .loc[row_indexer,col_indexer] = value instead
 ## 
@@ -200,17 +216,62 @@ for i in dates:
 ## Try using .loc[row_indexer,col_indexer] = value instead
 ## 
 ## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-## <string>:19: SettingWithCopyWarning: 
+## <string>:26: SettingWithCopyWarning: 
 ## A value is trying to be set on a copy of a slice from a DataFrame.
 ## Try using .loc[row_indexer,col_indexer] = value instead
 ## 
 ## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-## <string>:23: SettingWithCopyWarning: 
+## <string>:27: SettingWithCopyWarning: 
 ## A value is trying to be set on a copy of a slice from a DataFrame.
 ## Try using .loc[row_indexer,col_indexer] = value instead
 ## 
 ## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-## <string>:24: SettingWithCopyWarning: 
+## <string>:31: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:32: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:15: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:18: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:26: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:27: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:15: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:18: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:26: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:27: SettingWithCopyWarning: 
 ## A value is trying to be set on a copy of a slice from a DataFrame.
 ## Try using .loc[row_indexer,col_indexer] = value instead
 ## 
@@ -218,8 +279,11 @@ for i in dates:
 ```
 
 ```python
+# Remove std curve samples.
 toptopnmol=toptopnmol[~toptopnmol["ID"].str.contains("ppm")]
+# Remove blank samples.
 toptopnmol=toptopnmol[~toptopnmol["ID"].str.contains("blank")]
+# Remove samples without acetylene.
 toptopnmol=toptopnmol[~toptopnmol["ID"].str.contains("neg")]
 toptopnmol["date"]=toptopnmol["date"].astype(str)
 toptopnmol["new-ID"]=toptopnmol["ID"].str.replace("_pos","_")+toptopnmol["date"]
@@ -240,13 +304,27 @@ toptopnmol["new-ID"]=toptopnmol["ID"].str.replace("_pos","_")+toptopnmol["date"]
 ```
 
 
+##### Plot nmol ethylene/hr/od. Bar charts.
+
 ```r
 data = py$toptopnmol
-#ggplot(data=data%>%filter(Area<10000),aes(x=RT,y=Area))+
-#  geom_point()
+data$date=as.numeric(data$date)
 
-ggplot(data=data, aes(x=`new-ID`, y=`nmol-eth/hr/OD`)) +
-  geom_bar(stat="summary",fun="mean", aes(fill=date)) + 
+# Original plot, in order of BCW#.
+#ggplot(data=data, aes(x=`new-ID`, y=`nmol-eth/hr/OD`)) +
+#  geom_bar(stat="summary",fun="mean", aes(fill=date)) + 
+#  geom_point() +
+#  geom_hline(yintercept=750,linetype="dashed")+
+#  scale_y_continuous(breaks=c(0,500,750,1000,1500,2000,2500),labels=c(0,500,"A. brasilense",1000,1500,2000,2500)) +
+#  #annotate("text",x=100,y=750,label="A. brasilense (Van Deynze et. al 2018)") +
+#  ylab("Nanomoles of Ethylene/hr/OD600") +
+#  xlab("Isolate") +
+#  theme(axis.text.x = element_blank())
+#        #element_text(angle=90, vjust=0.3))
+
+# Ethylene bar chart, ordered by magnitude.
+ggplot(data=data, aes(x=reorder(`new-ID`,-`nmol-eth/hr/OD`), y=`nmol-eth/hr/OD`)) +
+  geom_bar(stat="summary",fun="mean", aes(fill=as.factor(date))) + 
   geom_point() +
   geom_hline(yintercept=750,linetype="dashed")+
   scale_y_continuous(breaks=c(0,500,750,1000,1500,2000,2500),labels=c(0,500,"A. brasilense",1000,1500,2000,2500)) +
@@ -259,10 +337,9 @@ ggplot(data=data, aes(x=`new-ID`, y=`nmol-eth/hr/OD`)) +
 ![](2023_HI-ARA-analysis_files/figure-html/plot-1.png)<!-- -->
 
 ```r
-        #element_text(angle=90, vjust=0.3))
-
-ggplot(data=data, aes(x=reorder(`new-ID`,-`nmol-eth/hr/OD`), y=`nmol-eth/hr/OD`)) +
-  geom_bar(stat="summary",fun="mean", aes(fill=date)) + 
+# Ethylene bar chart, ordered by date.
+ggplot(data=data, aes(x=reorder(`new-ID`,`date`), y=`nmol-eth/hr/OD`)) +
+  geom_bar(stat="summary",fun="mean", aes(fill=as.factor(date))) + 
   geom_point() +
   geom_hline(yintercept=750,linetype="dashed")+
   scale_y_continuous(breaks=c(0,500,750,1000,1500,2000,2500),labels=c(0,500,"A. brasilense",1000,1500,2000,2500)) +
@@ -275,8 +352,9 @@ ggplot(data=data, aes(x=reorder(`new-ID`,-`nmol-eth/hr/OD`), y=`nmol-eth/hr/OD`)
 ![](2023_HI-ARA-analysis_files/figure-html/plot-2.png)<!-- -->
 
 ```r
-ggplot(data=data%>%filter(date=="20231208" | date=="20231209" | date=="20231210"), aes(x=`new-ID`, y=`nmol-eth/hr/OD`)) +
-  geom_bar(stat="summary",fun="mean", aes(fill=date)) + 
+# Ethylene bar chart, ordered by date. New septa only.
+ggplot(data=data%>%filter(date>=20231208), aes(x=reorder(`new-ID`,`date`), y=`nmol-eth/hr/OD`)) +
+  geom_bar(stat="summary",fun="mean", aes(fill=as.factor(date))) + 
   geom_point() +
   geom_hline(yintercept=750,linetype="dashed")+
   scale_y_continuous(breaks=c(0,500,750,1000,1500,2000,2500),labels=c(0,500,"A. brasilense",1000,1500,2000,2500)) +
@@ -288,6 +366,7 @@ ggplot(data=data%>%filter(date=="20231208" | date=="20231209" | date=="20231210"
 ![](2023_HI-ARA-analysis_files/figure-html/plot-3.png)<!-- -->
 
 ```r
+# Ethylene bar chart, Lactococcus and E. coli comparison.
 ggplot(data=data%>%filter(grepl("BCW200241|Ecoli|BCW200232",ID))%>%filter(date=="20231210"), aes(x=`new-ID`, y=`nmol-eth/hr/OD`)) +
   geom_bar(stat="summary",fun="mean", aes(fill=date)) + 
   geom_point() +
@@ -301,22 +380,7 @@ ggplot(data=data%>%filter(grepl("BCW200241|Ecoli|BCW200232",ID))%>%filter(date==
 
 ![](2023_HI-ARA-analysis_files/figure-html/plot-4.png)<!-- -->
 
-```r
-data$date=as.numeric(data$date)
-ggplot(data=data, aes(x=reorder(`new-ID`,`date`), y=`nmol-eth/hr/OD`)) +
-  geom_bar(stat="summary",fun="mean", aes(fill=as.factor(date))) + 
-  geom_point() +
-  geom_hline(yintercept=750,linetype="dashed")+
-  scale_y_continuous(breaks=c(0,500,750,1000,1500,2000,2500),labels=c(0,500,"A. brasilense",1000,1500,2000,2500)) +
-  #annotate("text",x=100,y=750,label="A. brasilense (Van Deynze et. al 2018)") +
-  ylab("Nanomoles of Ethylene/hr/OD600") +
-  xlab("Isolate") +
-  theme(axis.text.x = element_blank())
-```
-
-![](2023_HI-ARA-analysis_files/figure-html/plot-5.png)<!-- -->
-
-### Acetylene
+##### Extract Acetylene Peak Areas.
 
 ```python
 toptop=pd.DataFrame()
@@ -332,8 +396,7 @@ for i in os.listdir("data/"):
       data = data.iloc[:,1:24]
       # Note that these criteria are based on manual inspection of values, subject to change.
       data = data[data["RT"].between(4.7,5.4)]
-      # Some small peaks of non-ethylene mess with getting ethylene peak only.
-      # If ethylene is present, it is the highest peak, so getting the highest peak within the RT range.
+      # If acetylene is present, it is the highest peak, so getting the highest peak within the RT range.
       data = data[data["Area"]==data["Area"].max()]
       data.insert(loc=0,column="ID",value=name)
       data.insert(loc=24,column="date",value=i)
@@ -346,17 +409,17 @@ finalace = finalace[~finalace["ID"].str.contains("ppm")]
 finalace["new-ID"]=finalace["ID"].str.replace("_pos","_")+finalace["date"]
 ```
 
+##### Plot acetylene values. Barcharts and mean acetylene vs. mean ethylene.
 
 ```r
 ace=py$finalace
 data=py$toptopnmol
+ace$date=as.numeric(ace$date)
 
-ggplot(data=ace, aes(x=`new-ID`, y=Area)) +
-  geom_bar(stat="summary",fun="mean", aes(fill=date)) + 
+# Acetylene peak area, ordered by date.
+ggplot(data=ace, aes(x=reorder(`new-ID`,`date`), y=Area)) +
+  geom_bar(stat="summary",fun="mean", aes(fill=as.factor(date))) + 
   geom_point() +
-  #geom_hline(yintercept=750,linetype="dashed")+
-  #scale_y_continuous(breaks=c(0,500,750,1000,1500,2000,2500),labels=c(0,500,"A. brasilense",1000,1500,2000,2500)) +
-  #annotate("text",x=100,y=750,label="A. brasilense (Van Deynze et. al 2018)") +
   ylab("Acetylene Peak Area") +
   theme(axis.text.x = element_blank())
 ```
@@ -364,6 +427,7 @@ ggplot(data=ace, aes(x=`new-ID`, y=Area)) +
 ![](2023_HI-ARA-analysis_files/figure-html/plot-ace-1.png)<!-- -->
 
 ```r
+# Combine mean acetylene and mean ethylene information.
 mean_ace=ace%>%group_by(`new-ID`,date)%>%summarize(mean_ace_area=mean(Area))
 ```
 
@@ -383,22 +447,18 @@ mean_eth=data%>%group_by(`new-ID`,date)%>%summarize(mean_eth_area=mean(Area),mea
 
 ```r
 test=merge(x=mean_eth,y=mean_ace,by=c("new-ID","date"))
+
+# Mean acetylene vs. mean ethylene.
 ggplot(data=test, aes(x=mean_ace_area,y=mean_eth_area,color=date)) +
   geom_point(size=4)
 ```
 
 ![](2023_HI-ARA-analysis_files/figure-html/plot-ace-2.png)<!-- -->
 
-```r
-ggplot(data=test%>%filter(mean_eth_area<1000000), aes(x=mean_ace_area,y=mean_eth_area,color=date)) +
-  geom_point(size=4)
-```
-
-![](2023_HI-ARA-analysis_files/figure-html/plot-ace-3.png)<!-- -->
-
-# Every Rep Ethylene-Acetylene
+##### Get every vial's ethylene and acetylene peak areas.
 
 ```python
+# Acetylene.
 toptop=pd.DataFrame()
 for i in os.listdir("data/"):
   if os.path.isdir("data/"+i):
@@ -425,6 +485,7 @@ finalace = finalace[~finalace["ID"].str.contains("neg")]
 finalace = finalace[~finalace["ID"].str.contains("ppm")]
 finalace.set_index("ID",inplace=True)
 
+# Ethylene.
 top=pd.DataFrame()
 for i in os.listdir("data/"):
   if os.path.isdir("data/"+i):
@@ -451,24 +512,28 @@ finaleth = finaleth[~finaleth["ID"].str.contains("neg")]
 finaleth = finaleth[~finaleth["ID"].str.contains("ppm")]
 finaleth.set_index("ID",inplace=True)
 
+# Combine acetylene and ethylene.
 both=finaleth.join(finalace,lsuffix="_eth",rsuffix="_ace")
 both.reset_index(inplace=True)
 ```
 
+##### Plot acetylene vs. ethylene. For every vial.
 
 ```r
 data=py$both
-new_septa_data=data%>%filter(date_ace==20231208 | date_ace==20231209 | date_ace==20231210)
-old_septa_data=data%>%filter(!date_ace %in% c(20231208,20231209,20231210))
+data$date_ace=as.numeric(data$date_ace)
+new_septa_data=data%>%filter(date_ace>=20231208)
+old_septa_data=data%>%filter(date_ace<20231208)
+# Removing outliers for modelling.
 new_septa_data_filt=new_septa_data%>%filter(2.5E6<Area_ace & Area_ace<7.5E6)
 
-#Old data from before December. Using old septa.
+# Construct linear models. Ethylene area as function of acetylene area.
 old_model=lm(Area_eth ~ Area_ace, data=old_septa_data)
 new_septa_model=lm(Area_eth ~ Area_ace, data=new_septa_data)
 new_septa_filt_model=lm(Area_eth ~ Area_ace, data=new_septa_data_filt)
 
 #All data.
-ggplot(data=data, aes(x=Area_ace,y=Area_eth,color=date_ace)) +
+ggplot(data=data, aes(x=Area_ace,y=Area_eth,color=as.factor(date_ace))) +
   geom_point(size=4) +
   scale_x_continuous(breaks=c(0,2.5E6,5E6,7.5E6,1E7,1.25E7,1.5E7,1.75E7),limits=c(0,1.75E7)) +
   scale_y_continuous(breaks=c(0,1E6,2E6,3E6,4E6,5E6),limits=c(0,5E6)) +
@@ -479,75 +544,8 @@ ggplot(data=data, aes(x=Area_ace,y=Area_eth,color=date_ace)) +
 ![](2023_HI-ARA-analysis_files/figure-html/plot-every-eth-ace-1.png)<!-- -->
 
 ```r
-# New Septa. All available data.
-ggplot(data=new_septa_data, aes(x=Area_ace,y=Area_eth,color=date_ace)) +
-  geom_point(size=4) +
-  scale_x_continuous(breaks=c(0,2.5E6,5E6,7.5E6,1E7,1.25E7,1.5E7,1.75E7),limits=c(0,1.75E7)) +
-  scale_y_continuous(breaks=c(0,1E6,2E6,3E6,4E6,5E6),limits=c(0,5E6)) +
-  stat_smooth(method = "lm", col = "red") +
-  labs(title = paste("R^2 = ",signif(summary(new_septa_model)$r.squared, 5),
-                     "Intercept =",signif(new_septa_model$coef[[1]],5 ),
-                     " Slope =",signif(new_septa_model$coef[[2]], 5),
-                     " P =",signif(summary(new_septa_model)$coef[2,4], 5))) +
-  xlab("Acetylene Peak Area") +
-  ylab("Ethylene Peak Area")
-```
-
-```
-## `geom_smooth()` using formula = 'y ~ x'
-```
-
-```
-## Warning: Removed 26 rows containing missing values (`geom_smooth()`).
-```
-
-![](2023_HI-ARA-analysis_files/figure-html/plot-every-eth-ace-2.png)<!-- -->
-
-```r
-# New Septa. Excluding outliers.
-ggplot(data=new_septa_data_filt, aes(x=Area_ace,y=Area_eth,color=date_ace)) +
-  geom_point(size=4) +
-  scale_x_continuous(breaks=c(0,2.5E6,5E6,7.5E6,1E7,1.25E7,1.5E7,1.75E7),limits=c(0,1.75E7)) +
-  scale_y_continuous(breaks=c(0,1E6,2E6,3E6,4E6,5E6),limits=c(0,5E6)) +
-  stat_smooth(method = "lm", col = "red") +
-  labs(title = paste("R^2 = ",signif(summary(new_septa_filt_model)$r.squared, 5),
-                     "Intercept =",signif(new_septa_filt_model$coef[[1]],5 ),
-                     " Slope =",signif(new_septa_filt_model$coef[[2]], 5),
-                     " P =",signif(summary(new_septa_filt_model)$coef[2,4], 5))) +
-  xlab("Acetylene Peak Area") +
-  ylab("Ethylene Peak Area")
-```
-
-```
-## `geom_smooth()` using formula = 'y ~ x'
-```
-
-![](2023_HI-ARA-analysis_files/figure-html/plot-every-eth-ace-3.png)<!-- -->
-
-```r
-# New Septa. Excluding two outliers. Zoomed in.
-ggplot(data=new_septa_data_filt, aes(x=Area_ace,y=Area_eth,color=date_ace)) +
-  geom_point(size=4) +
-  #scale_x_continuous(breaks=c(0,2.5E6,5E6,7.5E6,1E7,1.25E7,1.5E7,1.75E7),limits=c(0,1.75E7)) +
-  #scale_y_continuous(breaks=c(0,1E6,2E6,3E6,4E6,5E6),limits=c(0,5E6)) +
-  stat_smooth(method = "lm", col = "red") +
-  labs(title = paste("R^2 = ",signif(summary(new_septa_filt_model)$r.squared, 5),
-                     "Intercept =",signif(new_septa_filt_model$coef[[1]],5 ),
-                     " Slope =",signif(new_septa_filt_model$coef[[2]], 5),
-                     " P =",signif(summary(new_septa_filt_model)$coef[2,4], 5))) +
-  xlab("Acetylene Peak Area") +
-  ylab("Ethylene Peak Area")
-```
-
-```
-## `geom_smooth()` using formula = 'y ~ x'
-```
-
-![](2023_HI-ARA-analysis_files/figure-html/plot-every-eth-ace-4.png)<!-- -->
-
-```r
 # Old Septa. All available data.
-ggplot(data=old_septa_data, aes(x=Area_ace,y=Area_eth,color=date_ace)) +
+ggplot(data=old_septa_data, aes(x=Area_ace,y=Area_eth,color=as.factor(date_ace))) +
   geom_point(size=4) +
   scale_x_continuous(breaks=c(0,2.5E6,5E6,7.5E6,1E7,1.25E7,1.5E7,1.75E7),limits=c(0,1.75E7)) +
   scale_y_continuous(breaks=c(0,1E6,2E6,3E6,4E6,5E6),limits=c(0,5E6)) +
@@ -566,4 +564,176 @@ ggplot(data=old_septa_data, aes(x=Area_ace,y=Area_eth,color=date_ace)) +
 ## Warning: Removed 6 rows containing missing values (`geom_smooth()`).
 ```
 
+![](2023_HI-ARA-analysis_files/figure-html/plot-every-eth-ace-2.png)<!-- -->
+
+```r
+# New Septa. All available data.
+ggplot(data=new_septa_data, aes(x=Area_ace,y=Area_eth,color=as.factor(date_ace))) +
+  geom_point(size=4) +
+  scale_x_continuous(breaks=c(0,2.5E6,5E6,7.5E6,1E7,1.25E7,1.5E7,1.75E7),limits=c(0,1.75E7)) +
+  scale_y_continuous(breaks=c(0,1E6,2E6,3E6,4E6,5E6),limits=c(0,5E6)) +
+  stat_smooth(method = "lm", col = "red") +
+  labs(title = paste("R^2 = ",signif(summary(new_septa_model)$r.squared, 5),
+                     "Intercept =",signif(new_septa_model$coef[[1]],5 ),
+                     " Slope =",signif(new_septa_model$coef[[2]], 5),
+                     " P =",signif(summary(new_septa_model)$coef[2,4], 5))) +
+  xlab("Acetylene Peak Area") +
+  ylab("Ethylene Peak Area")
+```
+
+```
+## `geom_smooth()` using formula = 'y ~ x'
+```
+
+![](2023_HI-ARA-analysis_files/figure-html/plot-every-eth-ace-3.png)<!-- -->
+
+```r
+# New Septa. Excluding outliers.
+ggplot(data=new_septa_data_filt, aes(x=Area_ace,y=Area_eth,color=as.factor(date_ace))) +
+  geom_point(size=4) +
+  scale_x_continuous(breaks=c(0,2.5E6,5E6,7.5E6,1E7,1.25E7,1.5E7,1.75E7),limits=c(0,1.75E7)) +
+  scale_y_continuous(breaks=c(0,1E6,2E6,3E6,4E6,5E6),limits=c(0,5E6)) +
+  stat_smooth(method = "lm", col = "red") +
+  labs(title = paste("R^2 = ",signif(summary(new_septa_filt_model)$r.squared, 5),
+                     "Intercept =",signif(new_septa_filt_model$coef[[1]],5 ),
+                     " Slope =",signif(new_septa_filt_model$coef[[2]], 5),
+                     " P =",signif(summary(new_septa_filt_model)$coef[2,4], 5))) +
+  xlab("Acetylene Peak Area") +
+  ylab("Ethylene Peak Area")
+```
+
+```
+## `geom_smooth()` using formula = 'y ~ x'
+```
+
+![](2023_HI-ARA-analysis_files/figure-html/plot-every-eth-ace-4.png)<!-- -->
+
+```r
+# New Septa. Excluding two outliers. Zoomed in.
+ggplot(data=new_septa_data_filt, aes(x=Area_ace,y=Area_eth,color=as.factor(date_ace))) +
+  geom_point(size=4) +
+  #scale_x_continuous(breaks=c(0,2.5E6,5E6,7.5E6,1E7,1.25E7,1.5E7,1.75E7),limits=c(0,1.75E7)) +
+  #scale_y_continuous(breaks=c(0,1E6,2E6,3E6,4E6,5E6),limits=c(0,5E6)) +
+  stat_smooth(method = "lm", col = "red") +
+  labs(title = paste("R^2 = ",signif(summary(new_septa_filt_model)$r.squared, 5),
+                     "Intercept =",signif(new_septa_filt_model$coef[[1]],5 ),
+                     " Slope =",signif(new_septa_filt_model$coef[[2]], 5),
+                     " P =",signif(summary(new_septa_filt_model)$coef[2,4], 5))) +
+  xlab("Acetylene Peak Area") +
+  ylab("Ethylene Peak Area")
+```
+
+```
+## `geom_smooth()` using formula = 'y ~ x'
+```
+
 ![](2023_HI-ARA-analysis_files/figure-html/plot-every-eth-ace-5.png)<!-- -->
+
+##### Ethylene standard curve visualization.
+
+```python
+toptop=pd.DataFrame()
+for i in os.listdir("data/"):
+  if os.path.isdir("data/"+i):
+    path = "data/"+i
+    top = pd.DataFrame()
+    for j in os.listdir(path):
+      name = j.split("_",1)[1].replace("_rep1_MS.csv","").replace("_rep2_MS.csv","").replace("_rep3_MS.csv","").replace("_rep4_MS.csv","").replace("_MS_1.csv","").replace("_rep5_MS.csv","").replace("_MS.csv","")
+      # At later dates, I stopped running neg for samples so I didn't say they were "pos". Need to add that label.
+      if "pos" not in name and "neg" not in name:
+        name = name+"_pos"
+      data = pd.read_csv(path+"/"+j, header=3)
+      data = data.iloc[:,1:24]
+      # Note that these criteria are based on manual inspection of values, subject to change.
+      data = data[data["RT"].between(2.4,2.68)]
+      # Some small peaks of non-ethylene mess with getting ethylene peak only.
+      # If ethylene is present, it is the highest peak, so getting the highest peak within the RT range.
+      data = data[data["Area"]==data["Area"].max()]
+      data.insert(loc=0,column="ID",value=name)
+      top = pd.concat([top,data], axis=0)
+    # Blanking, and remove blanks from final dataframe.
+    if "uninoc_pos" in top["ID"].to_list():
+      blank = top[top["ID"]=="uninoc_pos"]["Area"].mean()
+      top = top[top["ID"]!="uninoc_pos"]
+      top["Area"] = top["Area"]-blank
+      top.reset_index(drop=True,inplace=True)
+      top.insert(loc=24,column="date",value=i)
+      toptop = pd.concat([top,toptop], axis=0)
+    else:
+      blank = top[top["ID"]=="blank_pos"]["Area"].mean()
+      top = top[top["ID"]!="blank_pos"]
+      top["Area"] = top["Area"]-blank
+      top.reset_index(drop=True,inplace=True)
+      top.insert(loc=24,column="date",value=i)
+      toptop = pd.concat([top,toptop], axis=0)
+toptop.reset_index(drop=True,inplace=True)
+
+ppmeth=toptop[toptop["ID"].str.contains("ppm")].reset_index(drop=True)
+ppmeth["concentration"]=pd.to_numeric(ppmeth["ID"].str.replace("ppm_pos","").str.replace("ppm_N_pos",""))
+# At STP, there are 669245.5nmol gas in 15mL of headspace. This is what we're assuming.
+# To convert ppm to nmol of gas, simply take the proportion of the nmol total.
+ppmeth["nmol"]= 669245.5*(ppmeth["concentration"]/1E6)
+```
+
+
+##### Plot std curves.
+
+```r
+ppmeth=py$ppmeth
+for (i in unique(ppmeth$date)){
+  data=ppmeth%>%filter(date==i)
+  model=lm(Area ~ nmol, data=data)
+  plt = ggplot(data=data, aes(x=nmol,y=Area)) +
+    geom_point(size=4) +
+    stat_smooth(method = "lm", col="red") +
+    scale_x_continuous(trans=scales::pseudo_log_trans(base = 10),breaks=c(0,1,10,100,1000,1E4,1E5)) +
+    scale_y_continuous(trans=scales::pseudo_log_trans(base = 10),breaks=c(0,10,100,1000,1E4,1E5,1E6,1E7,1E8)) +
+    labs(title = paste(i,"R^2 = ",signif(summary(model)$r.squared, 5),
+                     "Intercept =",signif(model$coef[[1]],5 ),
+                     " Slope =",signif(model$coef[[2]], 5),
+                     " P =",signif(summary(model)$coef[2,4], 5))) +
+    xlab("Ethylene Concentration (nmol)") +
+    ylab("Ethylene Peak Area")
+  show(plt)
+}
+```
+
+```
+## `geom_smooth()` using formula = 'y ~ x'
+```
+
+![](2023_HI-ARA-analysis_files/figure-html/plot-std-curve-1.png)<!-- -->
+
+```
+## `geom_smooth()` using formula = 'y ~ x'
+```
+
+![](2023_HI-ARA-analysis_files/figure-html/plot-std-curve-2.png)<!-- -->
+
+```
+## `geom_smooth()` using formula = 'y ~ x'
+```
+
+![](2023_HI-ARA-analysis_files/figure-html/plot-std-curve-3.png)<!-- -->
+
+```
+## `geom_smooth()` using formula = 'y ~ x'
+```
+
+![](2023_HI-ARA-analysis_files/figure-html/plot-std-curve-4.png)<!-- -->
+
+```r
+ggplot(data=ppmeth%>%group_by(date), aes(x=nmol,y=Area,color=date))+
+  geom_point(size=4)+
+  scale_x_continuous(trans=scales::pseudo_log_trans(base = 10),breaks=c(0,1,10,100,1000,1E4,1E5)) +
+  scale_y_continuous(trans=scales::pseudo_log_trans(base = 10),breaks=c(0,10,100,1000,1E4,1E5,1E6,1E7,1E8)) +
+  stat_smooth(method = "lm") +
+  xlab("Ethylene Concentration (nmol)") +
+  ylab("Ethylene Peak Area")
+```
+
+```
+## `geom_smooth()` using formula = 'y ~ x'
+```
+
+![](2023_HI-ARA-analysis_files/figure-html/plot-std-curve-5.png)<!-- -->
