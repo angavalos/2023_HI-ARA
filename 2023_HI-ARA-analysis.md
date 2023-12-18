@@ -67,7 +67,7 @@ for i in os.listdir("data/"):
       data = pd.read_csv(path+"/"+j, header=3)
       data = data.iloc[:,1:24]
       # Note that these criteria are based on manual inspection of values, subject to change.
-      data = data[data["RT"].between(2.56,2.68)]
+      data = data[data["RT"].between(2.4,2.68)]
       # Some small peaks of non-ethylene mess with getting ethylene peak only.
       # If ethylene is present, it is the highest peak, so getting the highest peak within the RT range.
       data = data[data["Area"]==data["Area"].max()]
@@ -498,7 +498,7 @@ for i in os.listdir("data/"):
       data = pd.read_csv(path+"/"+j, header=3)
       data = data.iloc[:,1:24]
       # Note that these criteria are based on manual inspection of values, subject to change.
-      data = data[data["RT"].between(2.56,2.68)]
+      data = data[data["RT"].between(2.4,2.68)]
       # Some small peaks of non-ethylene mess with getting ethylene peak only.
       # If ethylene is present, it is the highest peak, so getting the highest peak within the RT range.
       data = data[data["Area"]==data["Area"].max()]
