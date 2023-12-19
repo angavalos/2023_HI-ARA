@@ -1,7 +1,7 @@
 ---
 title: "2023 HI ARA Analysis"
 author: "Angel Avalos"
-date: "`r Sys.Date()`"
+date: "2023-12-18"
 output: 
   html_document: 
     keep_md: yes
@@ -12,7 +12,8 @@ output:
 ### Import packages and set working directory.
 
 ##### R
-```{r setup, warning=FALSE, message=FALSE}
+
+```r
 knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 library(reticulate)
 library(ggplot2)
@@ -21,7 +22,8 @@ library(dplyr)
 ```
 
 ##### Python
-``` {python setup_2, message=FALSE}
+
+```python
 import pandas as pd
 import numpy as np
 import os
@@ -31,7 +33,8 @@ from sklearn import linear_model
 ### EKL Density Experiments.
 
 ##### Extract Ethylene Peaks for samples. Convert to nmol ethylene/hr/OD.
-```{python ara-data}
+
+```python
 toptop=pd.DataFrame()
 for i in os.listdir("other-data/20231218_ekl-density"):
   if os.path.isdir("other-data/20231218_ekl-density/"+i):
@@ -112,6 +115,52 @@ for i in dates:
     subs["nmol-eth"]=(subs["Area"]-intercept)/coef
     subs["nmol-eth/hr/OD"]=(subs["nmol-eth"]/48/0.1)
     toptopnmol=pd.concat([subs,toptopnmol],axis=0)
+```
+
+```
+## <string>:15: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:18: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:26: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:27: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:15: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:18: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:26: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:27: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+```
+
+```python
 # Remove std curve samples.
 toptopnmol=toptopnmol[~toptopnmol["ID"].str.contains("ppm")]
 # Remove blank samples.
@@ -158,26 +207,38 @@ for i,v in enumerate(toptopnmol["ID"]):
 
 
 ##### Plot nmol ethylene/hr/od. Bar charts.
-```{r plot, fig.width=10}
+
+```r
 data = py$toptopnmol
 
 # Ethylene scatter. All 4 isolates.
 ggplot(data=data%>%group_by(Isolate,Hours,OD), aes(x=`Hours`, y=`nmol-eth`,color=as.factor(OD))) +
   geom_point(size=3) +
   facet_wrap(~Isolate)
+```
 
+![](2023_HI-20231218-experiments_files/figure-html/plot-1.png)<!-- -->
+
+```r
 # Ethylene scatter. Only BCW200241.
 ggplot(data=data%>%group_by(Isolate,Hours,OD)%>%filter(Isolate=="N-fixing Lactococcus"), aes(x=`Hours`, y=`nmol-eth`,color=as.factor(OD))) +
   geom_point(size=3) +
   scale_y_continuous(limits=c(0,675))
+```
 
+![](2023_HI-20231218-experiments_files/figure-html/plot-2.png)<!-- -->
+
+```r
 # Ethylene scatter. Only BCW200241, zoomed in.
 ggplot(data=data%>%group_by(Isolate,Hours,OD)%>%filter(Isolate=="N-fixing Lactococcus"), aes(x=`Hours`, y=`nmol-eth`,color=as.factor(OD))) +
   geom_point(size=3)
 ```
 
+![](2023_HI-20231218-experiments_files/figure-html/plot-3.png)<!-- -->
+
 ##### Extract Acetylene Peak Areas.
-```{python ace}
+
+```python
 toptop=pd.DataFrame()
 for i in os.listdir("other-data/20231218_ekl-density"):
   if os.path.isdir("other-data/20231218_ekl-density/"+i):
@@ -223,7 +284,8 @@ for i,v in enumerate(finalace["ID"]):
 ```
 
 ##### Plot acetylene values. Barcharts and mean acetylene vs. mean ethylene.
-```{r plot-ace, fig.width=10}
+
+```r
 ace=py$finalace
 data=py$toptopnmol
 
@@ -233,10 +295,30 @@ ggplot(data=ace, aes(x=ID, y=Area)) +
   geom_point() +
   ylab("Acetylene Peak Area") +
   theme(axis.text.x = element_text(angle=90))
+```
 
+![](2023_HI-20231218-experiments_files/figure-html/plot-ace-1.png)<!-- -->
+
+```r
 # Combine mean acetylene and mean ethylene information.
 mean_ace=ace%>%group_by(`new-ID`,date)%>%summarize(mean_ace_area=mean(Area))
+```
+
+```
+## `summarise()` has grouped output by 'new-ID'. You can override using the
+## `.groups` argument.
+```
+
+```r
 mean_eth=data%>%group_by(`new-ID`,date)%>%summarize(mean_eth_area=mean(Area),mean_nmol_per_hr_OD=mean(`nmol-eth/hr/OD`))
+```
+
+```
+## `summarise()` has grouped output by 'new-ID'. You can override using the
+## `.groups` argument.
+```
+
+```r
 test=merge(x=mean_eth,y=mean_ace,by=c("new-ID","date"))
 
 # Mean acetylene vs. mean ethylene.
@@ -244,8 +326,11 @@ ggplot(data=test, aes(x=mean_ace_area,y=mean_eth_area,color=date)) +
   geom_point(size=4)
 ```
 
+![](2023_HI-20231218-experiments_files/figure-html/plot-ace-2.png)<!-- -->
+
 ##### Get every vial's ethylene and acetylene peak areas.
-```{python every-eth-ace}
+
+```python
 # Acetylene.
 toptop=pd.DataFrame()
 for i in os.listdir("other-data/20231218_ekl-density"):
@@ -323,7 +408,8 @@ for i,v in enumerate(both["ID"]):
 ```
 
 ##### Plot acetylene vs. ethylene. For every vial.
-```{r plot-every-eth-ace-ekl, fig.width=10}
+
+```r
 data=py$both
 
 #All data.
@@ -336,8 +422,11 @@ ggplot(data=data, aes(x=Area_ace,y=Area_eth,color=as.factor(OD))) +
   facet_wrap(~Isolate)
 ```
 
+![](2023_HI-20231218-experiments_files/figure-html/plot-every-eth-ace-ekl-1.png)<!-- -->
+
 ### Time Series
-```{python ara-time-series}
+
+```python
 toptop=pd.DataFrame()
 for i in os.listdir("other-data/20231218_ekl-time-series"):
   if os.path.isdir("other-data/20231218_ekl-time-series/"+i):
@@ -420,6 +509,92 @@ for i in dates:
     elif i==20231216:
       subs["nmol-eth/hr/OD"]=(subs["nmol-eth"]/69/0.1)
     toptopnmol=pd.concat([subs,toptopnmol],axis=0)
+```
+
+```
+## <string>:15: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:18: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:26: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:28: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:15: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:18: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:26: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:30: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:15: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:18: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:26: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:32: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:15: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:18: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:26: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:34: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+```
+
+```python
 # Remove std curve samples.
 toptopnmol=toptopnmol[~toptopnmol["ID"].str.contains("ppm")]
 # Remove blank samples.
@@ -468,7 +643,8 @@ for i,v in enumerate(toptopnmol["new-ID"]):
 ```
 
 ##### Plot Time Series.
-```{r plot-time-series}
+
+```r
 data=py$toptopnmol
 
 # All Isolates. Total nmol, facet-wrap.
@@ -477,14 +653,32 @@ ggplot(data,aes(x=Hours,y=`nmol-eth`,color=Isolate)) +
   facet_wrap(~Isolate) +
   geom_line(data=data%>%group_by(Isolate,Hours)%>%summarize(mean=mean(`nmol-eth`)),
             aes(x=Hours,y=mean))
+```
 
+```
+## `summarise()` has grouped output by 'Isolate'. You can override using the
+## `.groups` argument.
+```
+
+![](2023_HI-20231218-experiments_files/figure-html/plot-time-series-1.png)<!-- -->
+
+```r
 # All Isolates. nmol/hr/OD.
 ggplot(data,aes(x=Hours,y=`nmol-eth/hr/OD`,color=Isolate)) +
   geom_point(size=3) +
   facet_wrap(~Isolate) +
   geom_line(data=data%>%group_by(Isolate,Hours)%>%summarize(mean=mean(`nmol-eth/hr/OD`)),
             aes(x=Hours,y=mean))
+```
 
+```
+## `summarise()` has grouped output by 'Isolate'. You can override using the
+## `.groups` argument.
+```
+
+![](2023_HI-20231218-experiments_files/figure-html/plot-time-series-2.png)<!-- -->
+
+```r
 # All Isolates. nmol/hr/OD.
 ggplot(data,aes(x=Hours,y=`Area`,color=Isolate)) +
   geom_point(size=3) +
@@ -493,10 +687,18 @@ ggplot(data,aes(x=Hours,y=`Area`,color=Isolate)) +
             aes(x=Hours,y=mean))
 ```
 
+```
+## `summarise()` has grouped output by 'Isolate'. You can override using the
+## `.groups` argument.
+```
+
+![](2023_HI-20231218-experiments_files/figure-html/plot-time-series-3.png)<!-- -->
+
 ### 20231228 Septum Test
 
 ##### Extract Acetylene Peak Areas.
-```{python ace-septum-test}
+
+```python
 toptop=pd.DataFrame()
 path = "other-data/20231218_septum-test/"
 for j in os.listdir(path):
@@ -532,7 +734,8 @@ for i,v in enumerate(finalace["ID"]):
 ```
 
 ##### Get every vial's ethylene and acetylene peak areas.
-```{r plot-ace-septum-test}
+
+```r
 data=py$finalace
 
 # Acetylene peak area.
@@ -543,8 +746,11 @@ ggplot(data=data, aes(x=ID, y=Area)) +
   theme(axis.text.x = element_text(angle=90))
 ```
 
+![](2023_HI-20231218-experiments_files/figure-html/plot-ace-septum-test-1.png)<!-- -->
+
 ##### Plot acetylene vs. ethylene. For every vial.
-```{r plot-every-eth-ace, fig.width=10}
+
+```r
 data=py$both
 
 #All data.
@@ -557,12 +763,15 @@ ggplot(data=data, aes(x=Area_ace,y=Area_eth,color=as.factor(Hours))) +
   facet_wrap(~Isolate)
 ```
 
+![](2023_HI-20231218-experiments_files/figure-html/plot-every-eth-ace-1.png)<!-- -->
+
 
 
 
 
 ##### Ethylene standard curve visualization.
-```{python std-curve,eval=FALSE}
+
+```python
 toptop=pd.DataFrame()
 for i in os.listdir("data/"):
   if os.path.isdir("data/"+i):
@@ -608,7 +817,8 @@ ppmeth["nmol"]= 669245.5*(ppmeth["concentration"]/1E6)
 
 
 ##### Plot std curves.
-```{r plot-std-curve,eval=FALSE}
+
+```r
 ppmeth=py$ppmeth
 for (i in unique(ppmeth$date)){
   data=ppmeth%>%filter(date==i)
@@ -634,5 +844,4 @@ ggplot(data=ppmeth%>%group_by(date), aes(x=nmol,y=Area,color=date))+
   stat_smooth(method = "lm") +
   xlab("Ethylene Concentration (nmol)") +
   ylab("Ethylene Peak Area")
-  
 ```
