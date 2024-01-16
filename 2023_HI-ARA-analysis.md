@@ -1,7 +1,7 @@
 ---
 title: "2023 HI ARA Analysis"
 author: "Angel Avalos"
-date: "2023-12-18"
+date: "2024-01-16"
 output: 
   html_document: 
     keep_md: yes
@@ -276,6 +276,56 @@ for i in dates:
 ## Try using .loc[row_indexer,col_indexer] = value instead
 ## 
 ## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:15: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:18: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:26: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:27: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:15: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:18: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:26: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:27: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:31: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:32: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
 ```
 
 ```python
@@ -285,8 +335,15 @@ toptopnmol=toptopnmol[~toptopnmol["ID"].str.contains("ppm")]
 toptopnmol=toptopnmol[~toptopnmol["ID"].str.contains("blank")]
 # Remove samples without acetylene.
 toptopnmol=toptopnmol[~toptopnmol["ID"].str.contains("neg")]
+# Remove empty samples.
+toptopnmol=toptopnmol[~toptopnmol["ID"].str.contains("empty")]
 toptopnmol["date"]=toptopnmol["date"].astype(str)
 toptopnmol["new-ID"]=toptopnmol["ID"].str.replace("_pos","_")+toptopnmol["date"]
+
+#Subsetting for samples run with both old and new septa.
+multilist=[i for i in toptopnmol["ID"] if len(toptopnmol[toptopnmol["ID"]==i])>3]
+multi=toptopnmol[toptopnmol["ID"].isin(multilist)]
+multi.reset_index(drop=True,inplace=True)
 
 # We're assuming 48hr incubation for all. There are slight variations (+-2hr). Can correct in the future.
 
@@ -303,24 +360,13 @@ toptopnmol["new-ID"]=toptopnmol["ID"].str.replace("_pos","_")+toptopnmol["date"]
 #len(pos["ID"].unique())
 ```
 
-
 ##### Plot nmol ethylene/hr/od. Bar charts.
 
 ```r
 data = py$toptopnmol
 data$date=as.numeric(data$date)
-
-# Original plot, in order of BCW#.
-#ggplot(data=data, aes(x=`new-ID`, y=`nmol-eth/hr/OD`)) +
-#  geom_bar(stat="summary",fun="mean", aes(fill=date)) + 
-#  geom_point() +
-#  geom_hline(yintercept=750,linetype="dashed")+
-#  scale_y_continuous(breaks=c(0,500,750,1000,1500,2000,2500),labels=c(0,500,"A. brasilense",1000,1500,2000,2500)) +
-#  #annotate("text",x=100,y=750,label="A. brasilense (Van Deynze et. al 2018)") +
-#  ylab("Nanomoles of Ethylene/hr/OD600") +
-#  xlab("Isolate") +
-#  theme(axis.text.x = element_blank())
-#        #element_text(angle=90, vjust=0.3))
+multi=py$multi
+multi$date=as.numeric(multi$date)
 
 # Ethylene bar chart, ordered by magnitude.
 ggplot(data=data, aes(x=reorder(`new-ID`,-`nmol-eth/hr/OD`), y=`nmol-eth/hr/OD`)) +
@@ -352,6 +398,21 @@ ggplot(data=data, aes(x=reorder(`new-ID`,`date`), y=`nmol-eth/hr/OD`)) +
 ![](2023_HI-ARA-analysis_files/figure-html/plot-2.png)<!-- -->
 
 ```r
+# Ethylene bar chart, samples done with old and new septa.
+ggplot(data=multi, aes(x=`new-ID`, y=`nmol-eth/hr/OD`)) +
+  geom_bar(stat="summary",fun="mean", aes(fill=as.factor(date))) + 
+  geom_point() +
+  geom_hline(yintercept=750,linetype="dashed")+
+  scale_y_continuous(breaks=c(0,500,750,1000,1500,2000,2500),labels=c(0,500,"A. brasilense",1000,1500,2000,2500)) +
+  #annotate("text",x=100,y=750,label="A. brasilense (Van Deynze et. al 2018)") +
+  ylab("Nanomoles of Ethylene/hr/OD600") +
+  xlab("Isolate") +
+  theme(axis.text.x = element_text(angle=90, vjust=0.3))
+```
+
+![](2023_HI-ARA-analysis_files/figure-html/plot-3.png)<!-- -->
+
+```r
 # Ethylene bar chart, ordered by date. New septa only.
 ggplot(data=data%>%filter(date>=20231208), aes(x=reorder(`new-ID`,`date`), y=`nmol-eth/hr/OD`)) +
   geom_bar(stat="summary",fun="mean", aes(fill=as.factor(date))) + 
@@ -363,7 +424,7 @@ ggplot(data=data%>%filter(date>=20231208), aes(x=reorder(`new-ID`,`date`), y=`nm
   theme(axis.text.x = element_text(angle=90, vjust=0.3))
 ```
 
-![](2023_HI-ARA-analysis_files/figure-html/plot-3.png)<!-- -->
+![](2023_HI-ARA-analysis_files/figure-html/plot-4.png)<!-- -->
 
 ```r
 # Ethylene bar chart, Lactococcus and E. coli comparison.
@@ -378,7 +439,7 @@ ggplot(data=data%>%filter(grepl("BCW200241|Ecoli|BCW200232",ID))%>%filter(date==
   theme(axis.text.x = element_text(angle=90, vjust=0.3))
 ```
 
-![](2023_HI-ARA-analysis_files/figure-html/plot-4.png)<!-- -->
+![](2023_HI-ARA-analysis_files/figure-html/plot-5.png)<!-- -->
 
 ##### Extract Acetylene Peak Areas.
 
@@ -406,6 +467,7 @@ finalace = toptop[~toptop["ID"].str.contains("blank")]
 finalace = finalace[~finalace["ID"].str.contains("uninoc")]
 finalace = finalace[~finalace["ID"].str.contains("neg")]
 finalace = finalace[~finalace["ID"].str.contains("ppm")]
+finalace = finalace[~finalace["ID"].str.contains("empty")]
 finalace["new-ID"]=finalace["ID"].str.replace("_pos","_")+finalace["date"]
 ```
 
@@ -425,6 +487,17 @@ ggplot(data=ace, aes(x=reorder(`new-ID`,`date`), y=Area)) +
 ```
 
 ![](2023_HI-ARA-analysis_files/figure-html/plot-ace-1.png)<!-- -->
+
+```r
+# Acetylene peak area, ordered by date.
+ggplot(data=ace%>%filter(date>20240111), aes(x=reorder(`new-ID`,`date`), y=Area)) +
+  geom_bar(stat="summary",fun="mean", aes(fill=as.factor(date))) + 
+  geom_point() +
+  ylab("Acetylene Peak Area") +
+  theme(axis.text.x = element_text(angle=90, vjust=0.3))
+```
+
+![](2023_HI-ARA-analysis_files/figure-html/plot-ace-2.png)<!-- -->
 
 ```r
 # Combine mean acetylene and mean ethylene information.
@@ -453,7 +526,7 @@ ggplot(data=test, aes(x=mean_ace_area,y=mean_eth_area,color=date)) +
   geom_point(size=4)
 ```
 
-![](2023_HI-ARA-analysis_files/figure-html/plot-ace-2.png)<!-- -->
+![](2023_HI-ARA-analysis_files/figure-html/plot-ace-3.png)<!-- -->
 
 ##### Get every vial's ethylene and acetylene peak areas.
 
@@ -483,6 +556,7 @@ finalace = toptop[~toptop["ID"].str.contains("blank")]
 finalace = finalace[~finalace["ID"].str.contains("uninoc")]
 finalace = finalace[~finalace["ID"].str.contains("neg")]
 finalace = finalace[~finalace["ID"].str.contains("ppm")]
+finalace = finalace[~finalace["ID"].str.contains("empty")]
 finalace.set_index("ID",inplace=True)
 
 # Ethylene.
@@ -510,6 +584,7 @@ finaleth = top[~top["ID"].str.contains("blank")]
 finaleth = finaleth[~finaleth["ID"].str.contains("uninoc")]
 finaleth = finaleth[~finaleth["ID"].str.contains("neg")]
 finaleth = finaleth[~finaleth["ID"].str.contains("ppm")]
+finaleth = finaleth[~finaleth["ID"].str.contains("empty")]
 finaleth.set_index("ID",inplace=True)
 
 # Combine acetylene and ethylene.
@@ -722,6 +797,18 @@ for (i in unique(ppmeth$date)){
 
 ![](2023_HI-ARA-analysis_files/figure-html/plot-std-curve-4.png)<!-- -->
 
+```
+## `geom_smooth()` using formula = 'y ~ x'
+```
+
+![](2023_HI-ARA-analysis_files/figure-html/plot-std-curve-5.png)<!-- -->
+
+```
+## `geom_smooth()` using formula = 'y ~ x'
+```
+
+![](2023_HI-ARA-analysis_files/figure-html/plot-std-curve-6.png)<!-- -->
+
 ```r
 ggplot(data=ppmeth%>%group_by(date), aes(x=nmol,y=Area,color=date))+
   geom_point(size=4)+
@@ -736,4 +823,4 @@ ggplot(data=ppmeth%>%group_by(date), aes(x=nmol,y=Area,color=date))+
 ## `geom_smooth()` using formula = 'y ~ x'
 ```
 
-![](2023_HI-ARA-analysis_files/figure-html/plot-std-curve-5.png)<!-- -->
+![](2023_HI-ARA-analysis_files/figure-html/plot-std-curve-7.png)<!-- -->

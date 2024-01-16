@@ -1,7 +1,7 @@
 ---
 title: "2023 HI ARA Analysis"
 author: "Angel Avalos"
-date: "2023-12-18"
+date: "2023-12-20"
 output: 
   html_document: 
     keep_md: yes
@@ -693,6 +693,76 @@ ggplot(data,aes(x=Hours,y=`Area`,color=Isolate)) +
 ```
 
 ![](2023_HI-20231218-experiments_files/figure-html/plot-time-series-3.png)<!-- -->
+##### Time Series Acetylene
+
+```python
+toptop=pd.DataFrame()
+for i in os.listdir("other-data/20231218_ekl-time-series"):
+  if os.path.isdir("other-data/20231218_ekl-time-series/"+i):
+    path = "other-data/20231218_ekl-time-series/"+i
+    for j in os.listdir(path):
+      name = j.split("_",1)[1].replace("_rep1_MS.csv","").replace("_rep2_MS.csv","").replace("_rep3_MS.csv","").replace("_rep4_MS.csv","").replace("_MS_1.csv","").replace("_rep5_MS.csv","").replace("_MS.csv","")
+      # At later dates, I stopped running neg for samples so I didn't say they were "pos". Need to add that label.
+      if "pos" not in name and "neg" not in name:
+        name = name+"_pos"
+      data = pd.read_csv(path+"/"+j, header=3)
+      data = data.iloc[:,1:24]
+      # Note that these criteria are based on manual inspection of values, subject to change.
+      data = data[data["RT"].between(4.7,5.4)]
+      # If acetylene is present, it is the highest peak, so getting the highest peak within the RT range.
+      data = data[data["Area"]==data["Area"].max()]
+      data.insert(loc=0,column="ID",value=name)
+      data.insert(loc=24,column="date",value=i)
+      toptop = pd.concat([toptop,data], axis=0)
+toptop.reset_index(drop=True,inplace=True)
+finalace = toptop[~toptop["ID"].str.contains("blank")]
+finalace = finalace[~finalace["ID"].str.contains("uninoc")]
+finalace = finalace[~finalace["ID"].str.contains("neg")]
+finalace = finalace[~finalace["ID"].str.contains("ppm")]
+finalace["new-ID"]=finalace["ID"].str.replace("_pos","_")+finalace["date"]
+finalace.reset_index(drop=True,inplace=True)
+finalace["Isolate"]=""
+finalace["Hours"]=0
+finalace["OD"]=0.1
+for i,v in enumerate(finalace["new-ID"]):
+  if "BCW200241" in v:
+    finalace.loc[i,"Isolate"]="N-fixing Lactococcus"
+  if "BCW200232" in v:
+    finalace.loc[i,"Isolate"]="non-fixing Lactococcus"
+  if "BCW200167" in v:
+    finalace.loc[i,"Isolate"]="Klebsiella"
+  if "Ecoli" in v:
+    finalace.loc[i,"Isolate"]="E. coli"
+  if "20231213" in v:
+    finalace.loc[i,"Hours"]=0
+  if "20231214" in v:
+    finalace.loc[i,"Hours"]=24
+  if "20231215" in v:
+    finalace.loc[i,"Hours"]=48
+  if "20231216" in v:
+    finalace.loc[i,"Hours"]=69
+```
+
+##### Plot Time Series.
+
+```r
+data=py$finalace
+
+# All Isolates. Total nmol, facet-wrap.
+ggplot(data,aes(x=Hours,y=Area,color=Isolate)) +
+  geom_point(size=3) +
+  facet_wrap(~Isolate) +
+  geom_line(data=data%>%group_by(Isolate,Hours)%>%summarize(mean=mean(Area)),
+            aes(x=Hours,y=mean))
+```
+
+```
+## `summarise()` has grouped output by 'Isolate'. You can override using the
+## `.groups` argument.
+```
+
+![](2023_HI-20231218-experiments_files/figure-html/plot-ace-time-series-1.png)<!-- -->
+
 
 ### 20231228 Septum Test
 
