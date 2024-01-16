@@ -1,7 +1,7 @@
 ---
 title: "2023 HI ARA Analysis"
 author: "Angel Avalos"
-date: "2023-12-20"
+date: "2024-01-16"
 output: 
   html_document: 
     keep_md: yes
@@ -915,3 +915,196 @@ ggplot(data=ppmeth%>%group_by(date), aes(x=nmol,y=Area,color=date))+
   xlab("Ethylene Concentration (nmol)") +
   ylab("Ethylene Peak Area")
 ```
+
+## EKL Time Series - January 2024
+
+##### Extract Ethylene Peaks for samples. Convert to nmol ethylene/hr/OD.
+
+```python
+toptop=pd.DataFrame()
+for i in os.listdir("other-data/20240108_lacto-time-series/"):
+  if os.path.isdir("other-data/20240108_lacto-time-series/"+i):
+    path = "other-data/20240108_lacto-time-series/"+i
+    top = pd.DataFrame()
+    for j in os.listdir(path):
+      name = j.split("_",1)[1].replace("_rep1_MS.csv","").replace("_rep2_MS.csv","").replace("_rep3_MS.csv","").replace("_rep4_MS.csv","").replace("_MS_1.csv","").replace("_rep5_MS.csv","").replace("_MS.csv","")
+      # At later dates, I stopped running neg for samples so I didn't say they were "pos". Need to add that label.
+      if "pos" not in name and "neg" not in name:
+        name = name+"_pos"
+      data = pd.read_csv(path+"/"+j, header=3)
+      data = data.iloc[:,1:24]
+      # Note that these criteria are based on manual inspection of values, subject to change.
+      data = data[data["RT"].between(2.4,2.68)]
+      # Some small peaks of non-ethylene mess with getting ethylene peak only.
+      # If ethylene is present, it is the highest peak, so getting the highest peak within the RT range.
+      data = data[data["Area"]==data["Area"].max()]
+      data.insert(loc=0,column="ID",value=name)
+      top = pd.concat([top,data], axis=0)
+    # Blanking, and remove blanks from final dataframe.
+    if "uninoc_pos" in top["ID"].to_list():
+      blank = top[top["ID"]=="uninoc_pos"]["Area"].mean()
+      top = top[top["ID"]!="uninoc_pos"]
+      top["Area"] = top["Area"]-blank
+      top.reset_index(drop=True,inplace=True)
+      top.insert(loc=24,column="date",value=i)
+      toptop = pd.concat([top,toptop], axis=0)
+    else:
+      blank = top[top["ID"]=="blank_pos"]["Area"].mean()
+      top = top[top["ID"]!="blank_pos"]
+      top["Area"] = top["Area"]-blank
+      top.reset_index(drop=True,inplace=True)
+      top.insert(loc=24,column="date",value=i)
+      toptop = pd.concat([top,toptop], axis=0)
+toptop.reset_index(drop=True,inplace=True)
+# "Pos" samples have acetylene. "Neg" do not. Separate.
+#pos = toptop[toptop["ID"].str.contains("pos")]
+#neg = toptop[toptop["ID"].str.contains("neg")]
+
+# Convert peak area to nmol ethylene.
+toptopnmol=pd.DataFrame()
+# Run for loop for dates in order so if no std curve for that date
+# then use the most recent std curve before that date.
+toptop["date"]=pd.to_numeric(toptop["date"])
+dates=[i for i in toptop["date"].unique()]
+dates.sort()
+for i in dates:
+  subs=toptop[toptop["date"]==i]
+  # This uses an old std curve calculation.
+  if i<20231208:
+    subs["nmol-eth"]=(subs["Area"]-17690)/383.46
+    subs["nmol-eth/hr/OD"]=(subs["nmol-eth"]/48/0.1)
+    toptopnmol=pd.concat([subs,toptopnmol],axis=0)
+  # This uses the std curve run on the same day.
+  elif subs["ID"].str.contains("ppm").any():
+    subsppm=subs[subs["ID"].str.contains("ppm")]
+    #subsppm=subsppm[~subsppm["ID"].str.contains("_N_")]
+    if subsppm["ID"].str.contains("_N_").any():
+      subsppm["concentration"]=pd.to_numeric(subsppm["ID"].str.replace("ppm_N_pos",""))
+    else:
+      subsppm["concentration"]=pd.to_numeric(subsppm["ID"].str.replace("ppm_pos",""))
+    # At STP, there are 669245.5nmol gas in 15mL of headspace. This is what we're assuming.
+    # To convert ppm to nmol of gas, simply take the proportion of the nmol total.
+    subsppm["nmol"]= 669245.5*(subsppm["concentration"]/1E6)
+    x=subsppm["nmol"].values
+    y=subsppm["Area"].values
+    x=x.reshape(len(x),1)
+    y=y.reshape(len(x),1)
+    regr=linear_model.LinearRegression().fit(x,y)
+    coef=regr.coef_[0]
+    intercept=regr.intercept_[0]
+    subs["nmol-eth"]=(subs["Area"]-intercept)/coef
+    subs["nmol-eth/hr/OD"]=(subs["nmol-eth"]/48/0.1)
+    toptopnmol=pd.concat([subs,toptopnmol],axis=0)
+  else:
+    # Since this is run sequentially by date, just use the last values if don't have ppm.
+    subs["nmol-eth"]=(subs["Area"]-intercept)/coef
+    subs["nmol-eth/hr/OD"]=(subs["nmol-eth"]/48/0.1)
+    toptopnmol=pd.concat([subs,toptopnmol],axis=0)
+```
+
+```
+## <string>:15: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:18: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:26: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:27: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:15: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:18: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:26: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:27: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:31: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## <string>:32: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+```
+
+```python
+# Remove std curve samples.
+toptopnmol=toptopnmol[~toptopnmol["ID"].str.contains("ppm")]
+# Remove blank samples.
+toptopnmol=toptopnmol[~toptopnmol["ID"].str.contains("blank")]
+# Remove samples without acetylene.
+toptopnmol=toptopnmol[~toptopnmol["ID"].str.contains("neg")]
+# Remove empty samples.
+toptopnmol=toptopnmol[~toptopnmol["ID"].str.contains("empty")]
+toptopnmol["date"]=toptopnmol["date"].astype(str)
+toptopnmol["new-ID"]=toptopnmol["ID"].str.replace("_pos","_")+toptopnmol["date"]
+
+toptopnmol.reset_index(drop=True,inplace=True)
+toptopnmol["Isolate"]=""
+toptopnmol["Hours"]=0
+for i,v in enumerate(toptopnmol["ID"]):
+  if "BCW200192" in v:
+    toptopnmol.loc[i,"Isolate"]="BCW200192"
+  if "BCW200175" in v:
+    toptopnmol.loc[i,"Isolate"]="BCW200175"
+  if "BCW200160" in v:
+    toptopnmol.loc[i,"Isolate"]="BCW200160"
+  if "BCW200167" in v:
+    toptopnmol.loc[i,"Isolate"]="Klebsiella"
+  if "Ecoli" in v:
+    toptopnmol.loc[i,"Isolate"]="E. coli"
+  if "T1" in v:
+    toptopnmol.loc[i,"Hours"]=24
+  if "T2" in v:
+    toptopnmol.loc[i,"Hours"]=48
+  if "T3" in v:
+    toptopnmol.loc[i,"Hours"]=72 
+```
+
+##### Plot Time Series.
+
+```r
+data=py$toptopnmol
+
+# All Isolates. Total nmol, facet-wrap.
+ggplot(data,aes(x=Hours,y=`nmol-eth`,color=Isolate)) +
+  geom_point(size=3) +
+  facet_wrap(~Isolate) +
+  geom_line(data=data%>%group_by(Isolate,Hours)%>%summarize(mean=mean(`nmol-eth`)),
+            aes(x=Hours,y=mean))
+```
+
+```
+## `summarise()` has grouped output by 'Isolate'. You can override using the
+## `.groups` argument.
+```
+
+![](2023_HI-20231218-experiments_files/figure-html/ekl-plot-time-series-1.png)<!-- -->

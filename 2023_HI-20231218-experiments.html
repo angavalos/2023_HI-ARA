@@ -11,7 +11,7 @@
 
 <meta name="author" content="Angel Avalos" />
 
-<meta name="date" content="2023-12-20" />
+<meta name="date" content="2024-01-16" />
 
 <title>2023 HI ARA Analysis</title>
 
@@ -352,7 +352,7 @@ display: none;
 
 <h1 class="title toc-ignore">2023 HI ARA Analysis</h1>
 <h4 class="author">Angel Avalos</h4>
-<h4 class="date">2023-12-20</h4>
+<h4 class="date">2024-01-16</h4>
 
 </div>
 
@@ -1164,6 +1164,187 @@ ggplot(data=ppmeth%&gt;%group_by(date), aes(x=nmol,y=Area,color=date))+
   stat_smooth(method = &quot;lm&quot;) +
   xlab(&quot;Ethylene Concentration (nmol)&quot;) +
   ylab(&quot;Ethylene Peak Area&quot;)</code></pre>
+</div>
+</div>
+<div id="ekl-time-series---january-2024" class="section level2">
+<h2>EKL Time Series - January 2024</h2>
+<div id="extract-ethylene-peaks-for-samples.-convert-to-nmol-ethylenehrod.-1" class="section level5">
+<h5>Extract Ethylene Peaks for samples. Convert to nmol
+ethylene/hr/OD.</h5>
+<pre class="python"><code>toptop=pd.DataFrame()
+for i in os.listdir(&quot;other-data/20240108_lacto-time-series/&quot;):
+  if os.path.isdir(&quot;other-data/20240108_lacto-time-series/&quot;+i):
+    path = &quot;other-data/20240108_lacto-time-series/&quot;+i
+    top = pd.DataFrame()
+    for j in os.listdir(path):
+      name = j.split(&quot;_&quot;,1)[1].replace(&quot;_rep1_MS.csv&quot;,&quot;&quot;).replace(&quot;_rep2_MS.csv&quot;,&quot;&quot;).replace(&quot;_rep3_MS.csv&quot;,&quot;&quot;).replace(&quot;_rep4_MS.csv&quot;,&quot;&quot;).replace(&quot;_MS_1.csv&quot;,&quot;&quot;).replace(&quot;_rep5_MS.csv&quot;,&quot;&quot;).replace(&quot;_MS.csv&quot;,&quot;&quot;)
+      # At later dates, I stopped running neg for samples so I didn&#39;t say they were &quot;pos&quot;. Need to add that label.
+      if &quot;pos&quot; not in name and &quot;neg&quot; not in name:
+        name = name+&quot;_pos&quot;
+      data = pd.read_csv(path+&quot;/&quot;+j, header=3)
+      data = data.iloc[:,1:24]
+      # Note that these criteria are based on manual inspection of values, subject to change.
+      data = data[data[&quot;RT&quot;].between(2.4,2.68)]
+      # Some small peaks of non-ethylene mess with getting ethylene peak only.
+      # If ethylene is present, it is the highest peak, so getting the highest peak within the RT range.
+      data = data[data[&quot;Area&quot;]==data[&quot;Area&quot;].max()]
+      data.insert(loc=0,column=&quot;ID&quot;,value=name)
+      top = pd.concat([top,data], axis=0)
+    # Blanking, and remove blanks from final dataframe.
+    if &quot;uninoc_pos&quot; in top[&quot;ID&quot;].to_list():
+      blank = top[top[&quot;ID&quot;]==&quot;uninoc_pos&quot;][&quot;Area&quot;].mean()
+      top = top[top[&quot;ID&quot;]!=&quot;uninoc_pos&quot;]
+      top[&quot;Area&quot;] = top[&quot;Area&quot;]-blank
+      top.reset_index(drop=True,inplace=True)
+      top.insert(loc=24,column=&quot;date&quot;,value=i)
+      toptop = pd.concat([top,toptop], axis=0)
+    else:
+      blank = top[top[&quot;ID&quot;]==&quot;blank_pos&quot;][&quot;Area&quot;].mean()
+      top = top[top[&quot;ID&quot;]!=&quot;blank_pos&quot;]
+      top[&quot;Area&quot;] = top[&quot;Area&quot;]-blank
+      top.reset_index(drop=True,inplace=True)
+      top.insert(loc=24,column=&quot;date&quot;,value=i)
+      toptop = pd.concat([top,toptop], axis=0)
+toptop.reset_index(drop=True,inplace=True)
+# &quot;Pos&quot; samples have acetylene. &quot;Neg&quot; do not. Separate.
+#pos = toptop[toptop[&quot;ID&quot;].str.contains(&quot;pos&quot;)]
+#neg = toptop[toptop[&quot;ID&quot;].str.contains(&quot;neg&quot;)]
+
+# Convert peak area to nmol ethylene.
+toptopnmol=pd.DataFrame()
+# Run for loop for dates in order so if no std curve for that date
+# then use the most recent std curve before that date.
+toptop[&quot;date&quot;]=pd.to_numeric(toptop[&quot;date&quot;])
+dates=[i for i in toptop[&quot;date&quot;].unique()]
+dates.sort()
+for i in dates:
+  subs=toptop[toptop[&quot;date&quot;]==i]
+  # This uses an old std curve calculation.
+  if i&lt;20231208:
+    subs[&quot;nmol-eth&quot;]=(subs[&quot;Area&quot;]-17690)/383.46
+    subs[&quot;nmol-eth/hr/OD&quot;]=(subs[&quot;nmol-eth&quot;]/48/0.1)
+    toptopnmol=pd.concat([subs,toptopnmol],axis=0)
+  # This uses the std curve run on the same day.
+  elif subs[&quot;ID&quot;].str.contains(&quot;ppm&quot;).any():
+    subsppm=subs[subs[&quot;ID&quot;].str.contains(&quot;ppm&quot;)]
+    #subsppm=subsppm[~subsppm[&quot;ID&quot;].str.contains(&quot;_N_&quot;)]
+    if subsppm[&quot;ID&quot;].str.contains(&quot;_N_&quot;).any():
+      subsppm[&quot;concentration&quot;]=pd.to_numeric(subsppm[&quot;ID&quot;].str.replace(&quot;ppm_N_pos&quot;,&quot;&quot;))
+    else:
+      subsppm[&quot;concentration&quot;]=pd.to_numeric(subsppm[&quot;ID&quot;].str.replace(&quot;ppm_pos&quot;,&quot;&quot;))
+    # At STP, there are 669245.5nmol gas in 15mL of headspace. This is what we&#39;re assuming.
+    # To convert ppm to nmol of gas, simply take the proportion of the nmol total.
+    subsppm[&quot;nmol&quot;]= 669245.5*(subsppm[&quot;concentration&quot;]/1E6)
+    x=subsppm[&quot;nmol&quot;].values
+    y=subsppm[&quot;Area&quot;].values
+    x=x.reshape(len(x),1)
+    y=y.reshape(len(x),1)
+    regr=linear_model.LinearRegression().fit(x,y)
+    coef=regr.coef_[0]
+    intercept=regr.intercept_[0]
+    subs[&quot;nmol-eth&quot;]=(subs[&quot;Area&quot;]-intercept)/coef
+    subs[&quot;nmol-eth/hr/OD&quot;]=(subs[&quot;nmol-eth&quot;]/48/0.1)
+    toptopnmol=pd.concat([subs,toptopnmol],axis=0)
+  else:
+    # Since this is run sequentially by date, just use the last values if don&#39;t have ppm.
+    subs[&quot;nmol-eth&quot;]=(subs[&quot;Area&quot;]-intercept)/coef
+    subs[&quot;nmol-eth/hr/OD&quot;]=(subs[&quot;nmol-eth&quot;]/48/0.1)
+    toptopnmol=pd.concat([subs,toptopnmol],axis=0)</code></pre>
+<pre><code>## &lt;string&gt;:15: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## &lt;string&gt;:18: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## &lt;string&gt;:26: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## &lt;string&gt;:27: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## &lt;string&gt;:15: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## &lt;string&gt;:18: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## &lt;string&gt;:26: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## &lt;string&gt;:27: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## &lt;string&gt;:31: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+## &lt;string&gt;:32: SettingWithCopyWarning: 
+## A value is trying to be set on a copy of a slice from a DataFrame.
+## Try using .loc[row_indexer,col_indexer] = value instead
+## 
+## See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy</code></pre>
+<pre class="python"><code># Remove std curve samples.
+toptopnmol=toptopnmol[~toptopnmol[&quot;ID&quot;].str.contains(&quot;ppm&quot;)]
+# Remove blank samples.
+toptopnmol=toptopnmol[~toptopnmol[&quot;ID&quot;].str.contains(&quot;blank&quot;)]
+# Remove samples without acetylene.
+toptopnmol=toptopnmol[~toptopnmol[&quot;ID&quot;].str.contains(&quot;neg&quot;)]
+# Remove empty samples.
+toptopnmol=toptopnmol[~toptopnmol[&quot;ID&quot;].str.contains(&quot;empty&quot;)]
+toptopnmol[&quot;date&quot;]=toptopnmol[&quot;date&quot;].astype(str)
+toptopnmol[&quot;new-ID&quot;]=toptopnmol[&quot;ID&quot;].str.replace(&quot;_pos&quot;,&quot;_&quot;)+toptopnmol[&quot;date&quot;]
+
+toptopnmol.reset_index(drop=True,inplace=True)
+toptopnmol[&quot;Isolate&quot;]=&quot;&quot;
+toptopnmol[&quot;Hours&quot;]=0
+for i,v in enumerate(toptopnmol[&quot;ID&quot;]):
+  if &quot;BCW200192&quot; in v:
+    toptopnmol.loc[i,&quot;Isolate&quot;]=&quot;BCW200192&quot;
+  if &quot;BCW200175&quot; in v:
+    toptopnmol.loc[i,&quot;Isolate&quot;]=&quot;BCW200175&quot;
+  if &quot;BCW200160&quot; in v:
+    toptopnmol.loc[i,&quot;Isolate&quot;]=&quot;BCW200160&quot;
+  if &quot;BCW200167&quot; in v:
+    toptopnmol.loc[i,&quot;Isolate&quot;]=&quot;Klebsiella&quot;
+  if &quot;Ecoli&quot; in v:
+    toptopnmol.loc[i,&quot;Isolate&quot;]=&quot;E. coli&quot;
+  if &quot;T1&quot; in v:
+    toptopnmol.loc[i,&quot;Hours&quot;]=24
+  if &quot;T2&quot; in v:
+    toptopnmol.loc[i,&quot;Hours&quot;]=48
+  if &quot;T3&quot; in v:
+    toptopnmol.loc[i,&quot;Hours&quot;]=72 </code></pre>
+</div>
+<div id="plot-time-series.-2" class="section level5">
+<h5>Plot Time Series.</h5>
+<pre class="r"><code>data=py$toptopnmol
+
+# All Isolates. Total nmol, facet-wrap.
+ggplot(data,aes(x=Hours,y=`nmol-eth`,color=Isolate)) +
+  geom_point(size=3) +
+  facet_wrap(~Isolate) +
+  geom_line(data=data%&gt;%group_by(Isolate,Hours)%&gt;%summarize(mean=mean(`nmol-eth`)),
+            aes(x=Hours,y=mean))</code></pre>
+<pre><code>## `summarise()` has grouped output by &#39;Isolate&#39;. You can override using the
+## `.groups` argument.</code></pre>
+<p><img src="data:image/png;base64,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" /><!-- --></p>
 </div>
 </div>
 </div>
