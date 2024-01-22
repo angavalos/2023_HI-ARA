@@ -1,7 +1,7 @@
 ---
 title: "2023 HI ARA Analysis"
 author: "Angel Avalos"
-date: "2024-01-16"
+date: "2024-01-22"
 output: 
   html_document: 
     keep_md: yes
@@ -339,6 +339,7 @@ toptopnmol=toptopnmol[~toptopnmol["ID"].str.contains("neg")]
 toptopnmol=toptopnmol[~toptopnmol["ID"].str.contains("empty")]
 toptopnmol["date"]=toptopnmol["date"].astype(str)
 toptopnmol["new-ID"]=toptopnmol["ID"].str.replace("_pos","_")+toptopnmol["date"]
+toptopnmol["base-ID"]=toptopnmol["ID"].str.replace("_pos","")
 
 #Subsetting for samples run with both old and new septa.
 multilist=[i for i in toptopnmol["ID"] if len(toptopnmol[toptopnmol["ID"]==i])>3]
@@ -367,6 +368,8 @@ data = py$toptopnmol
 data$date=as.numeric(data$date)
 multi=py$multi
 multi$date=as.numeric(multi$date)
+nano=read.csv("data/20240122_nanodropped-isolates.csv")
+test=data%>%filter(`base-ID`%in%as.list(nano$Sample.ID))
 
 # Ethylene bar chart, ordered by magnitude.
 ggplot(data=data, aes(x=reorder(`new-ID`,-`nmol-eth/hr/OD`), y=`nmol-eth/hr/OD`)) +
@@ -440,6 +443,21 @@ ggplot(data=data%>%filter(grepl("BCW200241|Ecoli|BCW200232",ID))%>%filter(date==
 ```
 
 ![](2023_HI-ARA-analysis_files/figure-html/plot-5.png)<!-- -->
+
+```r
+# Ethylene bar chart, ordered by date. New septa only. Nanodropped Samples (DNA Extracted).
+ggplot(data=test%>%filter(date>=20231208), aes(x=reorder(`new-ID`,`date`), y=`nmol-eth/hr/OD`)) +
+  geom_bar(stat="summary",fun="mean", aes(fill=as.factor(date))) + 
+  geom_point() +
+  geom_hline(yintercept=750,linetype="dashed")+
+  scale_y_continuous(breaks=c(0,500,750,1000,1500,2000,2500),labels=c(0,500,"A. brasilense",1000,1500,2000,2500)) +
+  #annotate("text",x=100,y=750,label="A. brasilense (Van Deynze et. al 2018)") +
+  ylab("Nanomoles of Ethylene/hr/OD600") +
+  theme(axis.text.x = element_text(angle=90, vjust=0.3)) +
+  ggtitle("Samples with extracted DNA")
+```
+
+![](2023_HI-ARA-analysis_files/figure-html/plot-6.png)<!-- -->
 
 ##### Extract Acetylene Peak Areas.
 
